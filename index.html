@@ -1,0 +1,1994 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f766e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="簡易WMS">
+<meta name="format-detection" content="telephone=no">
+<link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAIAAACyr5FlAAAB1klEQVR42u3dMQ6CMBSA4dfGXU+qm57B0Zt6BDeXkgZiYvvg+1ZjwPpbAhFazvdrwJJqCBAH4kAciANxIA7EgTgQB+IAcSAOxIE4EAfiQByIA3EgDhAH4kAciANxIA7EgTgQB+IAcSAOxIE4EAfiYE6ngdt+P1++gDUuj9uQ7ZYhj5qURYpEqjKy+P+4VWXoY4o4lJFrDKsy9OFUllnjMG1kHE8zB+JAHIgDcSAOxIE4EAfi4LiKdWUxcyAOxIE4EAfiQByIg3A7ZPgPaRzzBjgzB+JAHIgDcSAOxIE4EAfiQBwgDsSBOBAH4kAciANxIA7EAeJAHIgDcSAOxIE4EAfiQBwgDobHMWo19vDkFjMHueMweaQbybrLT6WMlIcVfSQavbr7T6iMyLjeiudPTv5zshgPTmURB+JAHIgDcRCW1IiVlze+p+/tBY/2pfZcv3OZpPP2zrY27eGPu7ppDw90hRSHFcSBOBAHiANxIA7EgTgQB+JAHIgDcYA4EAfiQByIA3EgDsSBOBAH4gBxIA7EgTgYxNMEMXMgDsSBOBAH4kAciANxIA4QB+JAHIgDcSAOxIE4EAfiAHEgDsSBOBAH4kAciANxIA4QB+JAHIgDcSAOJvUBkxtVG5uh7zoAAAAASUVORK5CYII=">
+<link rel="icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAIAAACyr5FlAAAB1klEQVR42u3dMQ6CMBSA4dfGXU+qm57B0Zt6BDeXkgZiYvvg+1ZjwPpbAhFazvdrwJJqCBAH4kAciANxIA7EgTgQB+IAcSAOxIE4EAfiQByIA3EgDhAH4kAciANxIA7EgTgQB+IAcSAOxIE4EAfiYE6ngdt+P1++gDUuj9uQ7ZYhj5qURYpEqjKy+P+4VWXoY4o4lJFrDKsy9OFUllnjMG1kHE8zB+JAHIgDcSAOxIE4EAfi4LiKdWUxcyAOxIE4EAfiQByIg3A7ZPgPaRzzBjgzB+JAHIgDcSAOxIE4EAfiQBwgDsSBOBAH4kAciANxIA7EAeJAHIgDcSAOxIE4EAfiQBwgDobHMWo19vDkFjMHueMweaQbybrLT6WMlIcVfSQavbr7T6iMyLjeiudPTv5zshgPTmURB+JAHIgDcRCW1IiVlze+p+/tBY/2pfZcv3OZpPP2zrY27eGPu7ppDw90hRSHFcSBOBAHiANxIA7EgTgQB+JAHIgDcYA4EAfiQByIA3EgDsSBOBAH4gBxIA7EgTgYxNMEMXMgDsSBOBAH4kAciANxIA4QB+JAHIgDcSAOxIE4EAfiAHEgDsSBOBAH4kAciANxIA4QB+JAHIgDcSAOJvUBkxtVG5uh7zoAAAAASUVORK5CYII=">
+<title>簡易WMS</title>
+<style>
+:root{
+  --bg:#f4f6f7; --card:#fff; --text:#16202a; --sub:#5b6773; --line:#d9dee3;
+  --pri:#0f766e; --pri-d:#0b5a54; --pri-t:#fff;
+  --ok:#15803d; --ok-bg:#dcfce7; --warn:#c2410c; --warn-bg:#ffedd5; --bad:#b91c1c; --bad-bg:#fee2e2; --mute-bg:#eef1f3;
+  --shadow:0 1px 3px rgba(0,0,0,.12);
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --bg:#10161b; --card:#1a232b; --text:#e8edf1; --sub:#9aa7b3; --line:#2c3844;
+    --pri:#2dd4bf; --pri-d:#14b8a6; --pri-t:#05211e;
+    --ok:#4ade80; --ok-bg:#12351f; --warn:#fb923c; --warn-bg:#3b2410; --bad:#f87171; --bad-bg:#3d1717; --mute-bg:#232e38;
+    --shadow:none;
+  }
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--text);font:16px/1.45 -apple-system,BlinkMacSystemFont,"Hiragino Sans","Hiragino Kaku Gothic ProN",Meiryo,sans-serif}
+body{padding-bottom:calc(24px + env(safe-area-inset-bottom))}
+button,input,select,textarea{font:inherit;color:inherit}
+header{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:8px;padding:calc(8px + env(safe-area-inset-top)) 12px 8px;background:var(--pri);color:var(--pri-t)}
+header h1{font-size:17px;margin:0;flex:1;font-weight:700}
+.chip{font-size:12px;padding:3px 9px;border-radius:99px;background:rgba(255,255,255,.22);border:0;color:inherit;max-width:42vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chip.bad{background:var(--bad-bg);color:var(--bad)}
+.iconbtn{border:0;background:rgba(255,255,255,.22);color:inherit;width:38px;height:38px;border-radius:10px;font-size:20px}
+@media (prefers-color-scheme:dark){ header{background:#0f2f2c;color:#d7fffa} }
+nav#tabs{position:sticky;top:calc(54px + env(safe-area-inset-top));z-index:19;display:flex;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;background:var(--card);border-bottom:1px solid var(--line)}
+nav#tabs::-webkit-scrollbar{display:none}
+nav#tabs button{flex:1 0 auto;border:0;background:none;padding:11px 14px 9px;font-weight:700;color:var(--sub);border-bottom:3px solid transparent;white-space:nowrap}
+nav#tabs button[aria-selected=true]{color:var(--pri);border-bottom-color:var(--pri)}
+main{max-width:720px;margin:0 auto;padding:10px 12px}
+body.wide main{max-width:1100px}
+body.wide table.t{font-size:15px}
+body.wide #camBox,body.wide #camBtn,body.wide [data-act=photo],body.wide #manualJan,body.wide #manualJan+button{display:none}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;margin:10px 0;box-shadow:var(--shadow)}
+.row{display:flex;gap:8px;align-items:center}
+.row.wrap{flex-wrap:wrap}
+.grow{flex:1;min-width:0}
+.sub{color:var(--sub);font-size:13px}
+.name{font-size:19px;font-weight:700;line-height:1.3;word-break:break-word}
+.tag{display:inline-block;font-size:12px;font-weight:700;padding:2px 8px;border-radius:99px;background:var(--mute-bg);color:var(--sub)}
+.tag.loc{background:#e0f2fe;color:#075985}
+@media (prefers-color-scheme:dark){.tag.loc{background:#0c2c3f;color:#7dd3fc}}
+.tag.ok{background:var(--ok-bg);color:var(--ok)} .tag.warn{background:var(--warn-bg);color:var(--warn)} .tag.bad{background:var(--bad-bg);color:var(--bad)}
+.btn{border:1px solid var(--line);background:var(--card);padding:11px 14px;border-radius:12px;font-weight:700;min-height:44px}
+.btn.pri{background:var(--pri);border-color:var(--pri);color:var(--pri-t)}
+.btn.danger{background:var(--bad);border-color:var(--bad);color:#fff}
+.btn.sm{padding:6px 10px;min-height:34px;font-size:14px}
+.btn.block{display:block;width:100%}
+.btn:disabled{opacity:.45}
+.btn{white-space:nowrap}
+input[type=text],input[type=number],input[type=search],input[type=tel],input[type=password],input[type=url],select,textarea{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);min-height:44px}
+textarea{min-height:110px;font-family:ui-monospace,Menlo,monospace;font-size:14px}
+label.f{display:block;margin:8px 0 4px;font-size:13px;font-weight:700;color:var(--sub)}
+#camBox{position:relative;background:#000;border-radius:14px;overflow:hidden;height:clamp(160px,27vh,300px);margin-top:4px}
+#camBox video{width:100%;height:100%;object-fit:cover;display:block}
+#camBox .frame{position:absolute;left:4%;right:4%;top:22%;bottom:22%;border:2px solid rgba(255,255,255,.85);border-radius:10px;pointer-events:none;box-shadow:0 0 0 9999px rgba(0,0,0,.28)}
+#camBox.flash .frame{border-color:#4ade80;box-shadow:0 0 0 9999px rgba(74,222,128,.28)}
+#camBox .msg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;color:#fff;padding:16px;font-size:14px;background:rgba(0,0,0,.55)}
+#camBox .msg.hide{display:none}
+#camBox .codebar{position:absolute;left:0;right:0;bottom:0;display:none;align-items:center;gap:8px;padding:8px 10px;background:rgba(15,118,110,.92);color:#fff;font-size:14px;font-weight:700}
+#camBox .codebar.on{display:flex}
+#camBox .codebar span{flex:1}
+#camBox .codebar button{border:0;border-radius:8px;padding:6px 12px;font-weight:700;background:#fff;color:#0b5a54}
+.seg{display:flex;gap:0;margin:4px 0 8px;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--card)}
+.seg button{flex:1;border:0;background:none;padding:10px 6px;font-weight:700;color:var(--sub)}
+.seg button.on{background:var(--pri);color:var(--pri-t)}
+.steps{display:flex;gap:6px;margin:6px 0}
+.steps span{flex:1;text-align:center;padding:7px 4px;border-radius:10px;background:var(--mute-bg);color:var(--sub);font-weight:700;font-size:13px}
+.steps span.cur{background:var(--pri);color:var(--pri-t)}
+.steps span.done{background:var(--ok-bg);color:var(--ok)}
+.stepper{display:flex;gap:8px;align-items:center}
+.stepper button{width:54px;height:54px;border-radius:14px;border:1px solid var(--line);background:var(--card);font-size:26px;font-weight:700}
+.stepper input{width:96px;text-align:center;font-size:24px;font-weight:700;min-height:54px}
+.kv{display:flex;gap:10px;margin:8px 0}
+.kv>div{flex:1;background:var(--mute-bg);border-radius:10px;padding:8px 10px;font-size:13px;color:var(--sub)}
+.kv b{display:block;font-size:22px;color:var(--text)}
+.item{border-left:6px solid var(--line);padding:10px 10px 10px 12px;margin:8px 0;background:var(--card);border-radius:10px;border-top:1px solid var(--line);border-right:1px solid var(--line);border-bottom:1px solid var(--line)}
+.item.match{border-left-color:var(--ok);background:linear-gradient(0deg,var(--ok-bg),var(--ok-bg))}
+.item.short{border-left-color:var(--warn);background:linear-gradient(0deg,var(--warn-bg),var(--warn-bg))}
+.item.over,.item.extra{border-left-color:var(--bad);background:linear-gradient(0deg,var(--bad-bg),var(--bad-bg))}
+.item.hot{outline:3px solid var(--pri)}
+.item .nums{font-size:15px}
+.item .nums b{font-size:20px}
+.mini{display:flex;gap:6px;align-items:center}
+.mini button{width:40px;height:40px;border-radius:10px;border:1px solid var(--line);background:var(--card);font-size:20px;font-weight:700}
+.banner{border-radius:14px;padding:14px;text-align:center;font-size:26px;font-weight:800;margin:10px 0}
+.banner.ok{background:var(--ok-bg);color:var(--ok)} .banner.warn{background:var(--warn-bg);color:var(--warn)}
+.banner small{display:block;font-size:13px;font-weight:600;margin-top:2px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chips label{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:99px;padding:7px 12px;background:var(--card);font-weight:600}
+.chips input{width:18px;height:18px}
+#toast{position:fixed;left:12px;right:12px;bottom:calc(14px + env(safe-area-inset-bottom));z-index:60;pointer-events:none;display:flex;flex-direction:column;gap:6px;align-items:center}
+#toast div{background:#1f2933;color:#fff;border-radius:12px;padding:10px 14px;max-width:560px;font-size:15px;box-shadow:0 4px 14px rgba(0,0,0,.3)}
+#toast div.warn{background:#9a3412} #toast div.bad{background:#991b1b} #toast div.ok{background:#166534}
+#modal{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.5);display:none;align-items:flex-end;justify-content:center}
+#modal.on{display:flex}
+#modal .sheet{background:var(--card);width:100%;max-width:720px;max-height:92vh;overflow:auto;border-radius:18px 18px 0 0;padding:14px 14px calc(18px + env(safe-area-inset-bottom))}
+#modal h2{margin:0 0 6px;font-size:18px}
+.hint{background:var(--mute-bg);border-radius:10px;padding:10px 12px;font-size:14px;color:var(--sub)}
+.err{color:var(--bad);font-size:14px}
+.pre{white-space:pre-wrap;font-family:ui-monospace,Menlo,monospace;font-size:13px;background:var(--mute-bg);border-radius:10px;padding:8px 10px;word-break:break-all}
+table.t{width:100%;border-collapse:collapse;font-size:14px}
+table.t td,table.t th{padding:5px 6px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+table.t td.n,table.t th.n{text-align:right;white-space:nowrap}
+.sw{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line)}
+.sw input{width:22px;height:22px}
+.diff-pos{color:var(--bad);font-weight:700}.diff-neg{color:var(--warn);font-weight:700}.diff-zero{color:var(--ok);font-weight:700}
+</style>
+</head>
+<body>
+<header>
+  <h1>簡易WMS</h1>
+  <button class="chip" id="status" data-act="settings" title="接続状態">未設定</button>
+  <button class="iconbtn" data-act="settings" aria-label="設定">⚙</button>
+</header>
+<nav id="tabs" role="tablist">
+  <button role="tab" data-act="tab" data-mode="recv">入荷</button>
+  <button role="tab" data-act="tab" data-mode="insp">検品</button>
+  <button role="tab" data-act="tab" data-mode="ship">出荷</button>
+  <button role="tab" data-act="tab" data-mode="issue">出庫</button>
+  <button role="tab" data-act="tab" data-mode="move">棚移動</button>
+  <button role="tab" data-act="tab" data-mode="stk">棚卸</button>
+  <button role="tab" data-act="tab" data-mode="stock">在庫</button>
+  <button role="tab" data-act="tab" data-mode="admin">管理</button>
+</nav>
+<main>
+  <div id="camBox">
+    <video id="video" playsinline webkit-playsinline muted autoplay></video>
+    <div class="frame"></div>
+    <div class="msg" id="camMsg">「カメラ開始」を押してください</div>
+    <div class="codebar" id="codeBar"><span></span><button data-act="codeCancel">やめる</button></div>
+  </div>
+  <div class="row wrap" style="margin-top:8px">
+    <button class="btn pri grow" id="camBtn" data-act="camToggle">カメラ開始</button>
+    <button class="btn" data-act="photo">写真から読む</button>
+    <input type="file" id="photoIn" accept="image/*" hidden>
+  </div>
+  <div class="row" style="margin-top:8px">
+    <input type="text" id="manualJan" inputmode="numeric" pattern="[0-9]*" placeholder="JANを手入力（読めない時）" autocomplete="off">
+    <button class="btn" data-act="manualJan">読込</button>
+  </div>
+  <div id="panel"></div>
+  <input type="file" id="slFile" accept=".csv,.tsv,.txt,text/*" hidden>
+  <input type="file" id="trFile" accept=".csv,.tsv,.txt,text/*" hidden>
+</main>
+<div id="toast"></div>
+<div id="modal"><div class="sheet" id="sheet"></div></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.23.0/umd/index.min.js" integrity="sha384-0ASr5PEWAMtTnWsn0PzKmioHVDA4+QqFiJr94io/0DCrGP6E1gRAmbO6O8y5WZW9" crossorigin="anonymous" defer></script>
+<script>
+'use strict';
+/* =====================================================================
+ * ロジック（画面に依存しない部分。Nodeの単体テストでこの範囲を取り出して検証する）
+ * ===================================================================== */
+/* <logic> */
+const Logic = (function () {
+  function nfkc(s) { s = String(s == null ? '' : s); return s.normalize ? s.normalize('NFKC') : s; }
+  function janDigits(v) { return nfkc(v).replace(/\D/g, ''); }
+  function janKey(d) { const k = String(d).replace(/^0+/, ''); return k === '' ? '0' : k; }
+  function checkDigitOk(d) {
+    let sum = 0;
+    for (let i = d.length - 2, w = 3; i >= 0; i--, w = (w === 3 ? 1 : 3)) sum += Number(d.charAt(i)) * w;
+    return ((10 - (sum % 10)) % 10) === Number(d.charAt(d.length - 1));
+  }
+  function validateJan(raw) {
+    const d = janDigits(raw);
+    if (!d) return { ok: false, reason: 'JANが空です' };
+    if (d.length !== 8 && d.length !== 12 && d.length !== 13) return { ok: false, reason: 'JANは8・12・13桁です（' + d.length + '桁）' };
+    if (!checkDigitOk(d)) return { ok: false, reason: 'チェックデジットが合いません' };
+    return { ok: true, jan: d, key: janKey(d) };
+  }
+  function normLocation(v) {
+    return nfkc(v).replace(/[‐-―−－]/g, '-').toUpperCase().replace(/\s+/g, ' ').trim();
+  }
+  function yen(n) { return (n === null || n === undefined || n === '') ? '' : '¥' + Number(n).toLocaleString('ja-JP'); }
+
+  function speechText(item) {
+    let name = String(item.name || '').replace(/[【】\[\]（）()「」『』]/g, ' ').replace(/\s+/g, ' ').trim();
+    if (name.length > 40) name = name.slice(0, 40);
+    const p = (item.price === null || item.price === undefined || item.price === '') ? '' : '、' + Number(item.price) + '円';
+    return name + p;
+  }
+
+  /* ---- 取り込み・検品予定の書式 ---- */
+  function splitCells(line) {
+    const delim = line.indexOf('\t') >= 0 ? '\t' : (line.indexOf(',') >= 0 ? ',' : null);
+    if (delim === null) return nfkc(line).trim().split(/\s+/);
+    const cells = []; let cur = '', inQ = false;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (inQ) { if (c === '"') { if (line[i + 1] === '"') { cur += '"'; i++; } else inQ = false; } else cur += c; }
+      else if (c === '"') inQ = true;
+      else if (c === delim) { cells.push(cur.trim()); cur = ''; }
+      else cur += c;
+    }
+    cells.push(cur.trim());
+    return cells;
+  }
+
+  /** 検品の予定: 1行1品。`JAN,予定数[,商品名]`。予定数が数字でない行（例: JAN,商品名）は defaultQty にする */
+  function parsePlanText(text, defaultQty) {
+    const dq = Math.max(1, Math.floor(Number(defaultQty)) || 1);
+    const rows = []; const errors = []; const byKey = {};
+    const lines = String(text || '').replace(/^﻿/, '').split(/\r\n|\r|\n/);
+    let first = true;
+    lines.forEach(function (line, i) {
+      if (/^\s*$/.test(line) || /^\s*#/.test(line)) return;
+      const cells = splitCells(line);
+      if (first) { first = false; if (!/^'?\d+$/.test(nfkc(cells[0]).replace(/\s/g, ''))) return; }
+      const v = validateJan(cells[0]);
+      if (!v.ok) { errors.push({ line: i + 1, text: line, reason: v.reason }); return; }
+      let q = dq;
+      if (cells.length > 1 && cells[1] !== '' && /^[0-9０-９]+$/.test(cells[1])) q = Number(nfkc(cells[1]));
+      else if (cells.length > 1 && /^-/.test(cells[1])) { errors.push({ line: i + 1, text: line, reason: '予定数が負です' }); return; }
+      if (q < 1) { errors.push({ line: i + 1, text: line, reason: '予定数は1以上です' }); return; }
+      if (byKey[v.key]) { byKey[v.key].planned += q; return; }
+      const r = { jan: v.jan, key: v.key, planned: q, name: cells.length > 2 ? cells[2] : '', line: i + 1 };
+      byKey[v.key] = r; rows.push(r);
+    });
+    return { rows: rows, errors: errors };
+  }
+
+  function planFromMaster(items, qty) {
+    const q = Math.max(1, Math.floor(Number(qty)) || 1);
+    return items.map(function (it) { return it.jan + ',' + q + ',' + String(it.name || '').replace(/[\r\n,]/g, ' '); }).join('\n');
+  }
+
+  /** ファイルのバイト列を文字列に。UTF-8でなければShift_JIS（Excelで保存したCSV対策） */
+  function decodeBytes(buf) {
+    const u8 = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
+    let s;
+    try { s = new TextDecoder('utf-8', { fatal: true }).decode(u8); }
+    catch (e) { s = new TextDecoder('shift_jis').decode(u8); }
+    return s.replace(/^﻿/, '');
+  }
+
+  function parseFragment(hash) {
+    const h = String(hash || '').replace(/^#/, '');
+    if (!h) return null;
+    const p = new URLSearchParams(h);
+    const gas = p.get('gas'), token = p.get('token');
+    if (!gas && !token) return null;
+    return { gas: gas || undefined, token: token || undefined };
+  }
+
+  function gasUrlProblem(u) {
+    u = String(u || '').trim();
+    if (!u) return '未入力です';
+    if (!/^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec$/.test(u)) {
+      if (/\/dev$/.test(u)) return '末尾が /dev です。デプロイ後の /exec のURLを入れてください';
+      return 'https://script.google.com/macros/s/…/exec の形式ではありません';
+    }
+    return '';
+  }
+
+  /* ---- 検品 ---- */
+  function inspStatus(r) {
+    if (r.planned === 0) return r.actual > 0 ? 'extra' : 'none';
+    if (r.actual === r.planned) return 'match';
+    return r.actual < r.planned ? 'short' : 'over';
+  }
+  function inspSummary(rows) {
+    const s = { total: 0, match: 0, short: 0, over: 0, extra: 0, planned: 0, actual: 0 };
+    rows.forEach(function (r) {
+      const st = inspStatus(r);
+      if (st === 'none') return;
+      s.total++; s[st]++; s.planned += r.planned; s.actual += r.actual;
+    });
+    s.allOk = s.total > 0 && s.short === 0 && s.over === 0 && s.extra === 0;
+    return s;
+  }
+
+  /* ---- 棚卸 ---- */
+  function stkView(session, masterItems) {
+    const scope = session.scope || [];
+    const inScope = function (loc) { return scope.length === 0 || scope.indexOf(normLocation(loc)) >= 0; };
+    const byKey = {};
+    masterItems.forEach(function (it) { byKey[janKey(it.jan)] = it; });
+    const counted = [];
+    (session.order || []).forEach(function (k) {
+      const c = session.counts[k]; if (!c) return;
+      const it = byKey[k] || { jan: c.jan, name: '（マスタ未登録）', location: '', stock: 0 };
+      counted.push({ key: k, jan: it.jan, name: it.name, location: it.location || '', book: it.stock, actual: c.actual,
+        diff: c.actual - it.stock, outOfScope: scope.length > 0 && !inScope(it.location) });
+    });
+    const uncounted = masterItems.filter(function (it) { return !session.counts[janKey(it.jan)] && inScope(it.location); });
+    return { counted: counted, uncounted: uncounted };
+  }
+
+  /* ---- 在庫一覧 ---- */
+  function filterStock(items, o) {
+    const q = nfkc(o.q || '').toLowerCase().trim();
+    const loc = o.loc ? normLocation(o.loc) : '';
+    let out = items.filter(function (it) {
+      if (loc && normLocation(it.location) !== loc) return false;
+      if (!q) return true;
+      return (nfkc(it.name) + ' ' + it.jan + ' ' + nfkc(it.location)).toLowerCase().indexOf(q) >= 0;
+    });
+    const cmp = function (a, b) { return String(a).localeCompare(String(b), 'ja', { numeric: true }); };
+    const byLoc = function (a, b) {
+      if (!a.location && b.location) return 1; if (a.location && !b.location) return -1;
+      return cmp(a.location, b.location) || cmp(a.name, b.name);
+    };
+    const sorters = {
+      loc: byLoc,
+      name: function (a, b) { return cmp(a.name, b.name); },
+      stockAsc: function (a, b) { return a.stock - b.stock || byLoc(a, b); },
+      stockDesc: function (a, b) { return b.stock - a.stock || byLoc(a, b); }
+    };
+    out = out.slice().sort(sorters[o.sort] || sorters.loc);
+    return out;
+  }
+
+  /* ---- 画像→読み取り ---- */
+  function rgbaToGray(data, w, h) {
+    const g = new Uint8ClampedArray(w * h);
+    for (let i = 0, j = 0; i < g.length; i++, j += 4) g[i] = (data[j] * 299 + data[j + 1] * 587 + data[j + 2] * 114) / 1000;
+    return g;
+  }
+  /** グレー画像を90度回転（縦向きのバーコードを写真から読む時に使う） */
+  function rotate90Gray(g, w, h) {
+    const out = new Uint8ClampedArray(w * h);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) out[x * h + (h - 1 - y)] = g[y * w + x];
+    return out;
+  }
+  /** video要素（object-fit: cover の箱）に見えている範囲の中から、枠（左右4%・上下22%を除いた部分）をvideo座標で返す */
+  function cropRegion(vw, vh, bw, bh) {
+    const boxAr = bw / bh, vidAr = vw / vh;
+    let visW, visH, visX, visY;
+    if (vidAr > boxAr) { visH = vh; visW = vh * boxAr; visX = (vw - visW) / 2; visY = 0; }
+    else { visW = vw; visH = vw / boxAr; visX = 0; visY = (vh - visH) / 2; }
+    return { x: Math.round(visX + visW * 0.04), y: Math.round(visY + visH * 0.22), w: Math.round(visW * 0.92), h: Math.round(visH * 0.56) };
+  }
+  /** kind: 'product'（EAN/UPCだけ。商品用）／'code'（ロケ・伝票番号用にCode 128・Code 39・QRも読む） */
+  function createDecoder(ZX, kind) {
+    const hints = new Map();
+    const BF = ZX.BarcodeFormat;
+    hints.set(ZX.DecodeHintType.POSSIBLE_FORMATS, kind === 'code'
+      ? [BF.EAN_13, BF.EAN_8, BF.UPC_A, BF.CODE_128, BF.CODE_39, BF.QR_CODE, BF.ITF, BF.CODABAR]
+      : [BF.EAN_13, BF.EAN_8, BF.UPC_A]);
+    hints.set(ZX.DecodeHintType.TRY_HARDER, true);
+    const reader = new ZX.MultiFormatReader();
+    reader.setHints(hints);
+    // ZXingは「バーコードなし」のたびに警告をconsoleへ出す（毎フレーム出て邪魔になる）ので、その警告だけ捨てる
+    const quiet = function (fn) {
+      if (typeof console === 'undefined') return fn();
+      const w = console.warn, l = console.log;
+      const filt = function (orig) { return function () { if (typeof arguments[0] === 'string' && arguments[0].indexOf('MultiFormatReader') === 0) return; return orig.apply(console, arguments); }; };
+      console.warn = filt(w); console.log = filt(l);
+      try { return fn(); } finally { console.warn = w; console.log = l; }
+    };
+    return function decode(gray, w, h) {
+      try {
+        const src = new ZX.RGBLuminanceSource(gray, w, h);
+        const bmp = new ZX.BinaryBitmap(new ZX.HybridBinarizer(src));
+        const res = quiet(function () { return reader.decodeWithState(bmp); });
+        return res ? res.getText() : null;
+      } catch (e) { return null; }
+    };
+  }
+
+  /** 入荷予定・伝票の作成用: `コード[,数量[,商品名]]`（コードはSKUまたはJAN。ここでは検証せずサーバーが解決する） */
+  function parseCodeQtyText(text, defaultQty) {
+    const dq = Math.max(1, Math.floor(Number(defaultQty)) || 1);
+    const rows = [], errors = [];
+    const HEAD = ['jan', 'sku', 'code', 'コード', '商品コード', 'jan/sku', 'skuまたはjan', 'バーコード', '品番'];
+    let seen = false;
+    String(text || '').replace(/^﻿/, '').split(/\r\n|\r|\n/).forEach(function (line, i) {
+      if (/^\s*$/.test(line)) return;
+      const cells = splitCells(line);
+      const c0 = nfkc(cells[0]).toLowerCase().replace(/\s+/g, '');
+      if (!seen) { seen = true; if (HEAD.indexOf(c0) >= 0) return; }
+      if (!c0) { errors.push({ line: i + 1, text: line, reason: 'コードがありません' }); return; }
+      let q = dq;
+      if (cells.length > 1 && cells[1] !== '') {
+        const t = nfkc(cells[1]).replace(/\s/g, '');
+        if (/^\d+$/.test(t)) q = Number(t);
+        else if (/^-\d+$/.test(t)) { errors.push({ line: i + 1, text: line, reason: '数量が1以上ではありません' }); return; }
+      }
+      if (q < 1) { errors.push({ line: i + 1, text: line, reason: '数量は1以上です' }); return; }
+      rows.push({ code: cells[0].trim(), qty: q, name: cells.length > 2 ? cells[2] : '', line: i + 1 });
+    });
+    return { rows: rows, errors: errors };
+  }
+
+  /* ---- 入荷予定の消込（検品済数 = サーバー保存分 + 今回の追加） ---- */
+  function rcvStatus(l) {
+    const total = (l.inspected || 0) + l.now;
+    if (l.extra) return total > 0 ? 'extra' : 'none';
+    if (l.now === 0 && (l.state === '消込' || l.received >= l.planned)) return 'none';
+    if (total === l.planned) return 'match';
+    return total < l.planned ? 'short' : 'over';
+  }
+  function rcvSummary(lines) {
+    const s = { total: 0, match: 0, short: 0, over: 0, extra: 0, nowTotal: 0, remainAfter: 0 };
+    lines.forEach(function (l) {
+      const total = (l.inspected || 0) + l.now, st = rcvStatus(l);
+      s.nowTotal += Math.max(0, total - l.received);
+      if (!l.extra && l.state !== '消込') s.remainAfter += Math.max(0, l.planned - Math.max(total, l.received));
+      if (st === 'none') return;
+      s.total++; s[st]++;
+    });
+    return s;
+  }
+
+  /* ---- 出荷（伝票）の在庫前後プレビュー ---- */
+  function shipPreview(lines) {
+    let short = 0, total = 0;
+    const rows = lines.map(function (l) {
+      const after = l.stock - l.qty;
+      if (after < 0) short++;
+      total += l.qty;
+      return Object.assign({}, l, { after: after, short: after < 0 });
+    });
+    return { rows: rows, short: short, total: total };
+  }
+
+  /** CSV文字列（見出し＋行）。式として解釈される先頭文字（= + @）は ' を付けて無害化し、カンマ・引用符・改行は引用符で囲む */
+  function toCsv(header, rows) {
+    const cell = function (v) {
+      let t = v === null || v === undefined ? '' : String(v);
+      if (/^[=+@\t\r]/.test(t)) t = "'" + t;
+      return /[",\r\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t;
+    };
+    return [header].concat(rows).map(function (r) { return r.map(cell).join(','); }).join('\r\n') + '\r\n';
+  }
+
+  /** 送り状番号の比較用: 全角→半角、空白とハイフンを除き、英字は大文字（GASの normTracking_ と同じ） */
+  function normTracking(v) { return nfkc(v).replace(/[\s\-]/g, '').toUpperCase(); }
+
+  function reasonOk(r) { const t = String(r == null ? '' : r).replace(/\s+/g, ' ').trim(); return t.length >= 1 && t.length <= 100; }
+
+  return { normTracking, toCsv, parseCodeQtyText, rcvStatus, rcvSummary, shipPreview, reasonOk, nfkc, janDigits, janKey, checkDigitOk, validateJan, normLocation, yen, speechText, splitCells, parsePlanText,
+    planFromMaster, decodeBytes, parseFragment, gasUrlProblem, inspStatus, inspSummary, stkView, filterStock,
+    rgbaToGray, rotate90Gray, cropRegion, createDecoder };
+})();
+/* </logic> */
+
+/* =====================================================================
+ * 画面
+ * ===================================================================== */
+const VERSION = '0.4.1';
+const $ = (s, r) => (r || document).querySelector(s);
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const pad = (n) => String(n).padStart(2, '0');
+const stamp = () => { const d = new Date(); return pad(d.getMonth() + 1) + '/' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()); };
+
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* 保存できない環境でも動かす */ } },
+  del(k) { try { localStorage.removeItem(k); } catch (e) { } }
+};
+
+const S = {
+  cfg: Object.assign({ gas: '', token: '', sound: true, vibrate: true, speech: true }, store.get('wms.cfg', {})),
+  master: new Map(),            // JANキー → {jan,name,price,stock,location}
+  masterState: 'none',          // none | loading | ok | error
+  masterErr: '',
+  mode: ['recv', 'insp', 'ship', 'issue', 'move', 'stk', 'stock', 'admin'].indexOf(store.get('wms.mode', 'recv')) >= 0 ? store.get('wms.mode', 'recv') : 'recv',
+  last: { recv: '', spot: '', ship: '', issue: '', move: '' },
+  rcvTab: store.get('wms.rcvTab', 'plan'), plans: null, rcv: store.get('wms.rcv', null),
+  rcvShowNew: false, rcvNew: { name: '', text: '', def: 1, errors: [] },
+  spot: null, issue: null, move: null, lastMoveTo: '',
+  slips: null, shipSel: null, shipQ: '',
+  inspTab: store.get('wms.inspTab', 'slip'), slipPanel: false, slipForm: { csv: '', no: '', lines: '', trk: '' }, slipRes: null, slipTrkRes: null,
+  unres: null, codeScan: null, planFilter: 'open',
+  admin: { tab: 'plans', planSt: 'open', slipSt: 'all', slipQ: '', open: {}, detail: {}, histQ: '', histKubun: '', hist: null },
+  sending: false,
+  insp: store.get('wms.insp', null), inspSetup: { name: '', plan: '', defQty: 1, errors: [] },
+  stk: store.get('wms.stk', null), stkSetup: { name: '', scope: [], uncounted: 'keep' }, stkShowUncounted: false,
+  stockView: { q: '', loc: '', sort: 'loc' },
+  cam: { state: 'off', msg: '', last: { text: '', t: 0 } },
+  modal: null
+};
+
+/* ---------- 通信（GAS） ---------- */
+class ApiError extends Error { constructor(code, message, data) { super(message); this.code = code; this.data = data || {}; } }
+
+async function api(action, payload, method) {
+  payload = payload || {}; method = method || 'POST';
+  if (!S.cfg.gas) throw new ApiError('config', '設定（⚙）でGASのURLと合言葉を入れてください');
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 30000);
+  let res, text;
+  try {
+    if (method === 'GET') {
+      const u = new URL(S.cfg.gas);
+      u.searchParams.set('action', action);
+      if (action !== 'ping') u.searchParams.set('token', S.cfg.token);
+      Object.keys(payload).forEach((k) => { if (payload[k] !== undefined && payload[k] !== null) u.searchParams.set(k, payload[k]); });
+      res = await fetch(u.toString(), { signal: ctrl.signal, redirect: 'follow' });
+    } else {
+      // text/plain にして、ブラウザの事前確認（プリフライト）を避ける
+      res = await fetch(S.cfg.gas, {
+        method: 'POST', redirect: 'follow', signal: ctrl.signal,
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(Object.assign({ action: action, token: S.cfg.token }, payload))
+      });
+    }
+    text = await res.text();
+  } catch (e) {
+    if (e.name === 'AbortError') throw new ApiError('timeout', '通信がタイムアウトしました（30秒）');
+    throw new ApiError('network', '通信できません（' + (e.message || e) + '）。URLの公開設定（全員）と電波を確認してください');
+  } finally { clearTimeout(timer); }
+  let data;
+  try { data = JSON.parse(text); } catch (e) {
+    throw new ApiError('not_json', 'GASがJSONを返しませんでした。URLが /exec か、公開設定が「全員」か確認してください');
+  }
+  if (!data.ok) throw new ApiError(data.error || 'error', data.message || '失敗しました', data);
+  return data;
+}
+
+function errText(e) {
+  if (e instanceof ApiError) {
+    const map = { unauthorized: '合言葉が違います', insufficient_stock: '在庫が足りません', not_in_master: 'マスタにないJANがあります', already_imported: '取り込み済みです', busy: '他の処理中です。もう一度押してください' };
+    return (map[e.code] || '') && (map[e.code] + (e.data && e.data.message ? '：' + e.data.message : '')) || e.message;
+  }
+  return e && e.message ? e.message : String(e);
+}
+
+/* ---------- マスタのキャッシュ ---------- */
+function putItem(it) { S.master.set(Logic.janKey(it.jan), it); }
+function allItems() { return Array.from(S.master.values()); }
+function locations() { return Array.from(new Set(allItems().map((i) => i.location).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'ja', { numeric: true })); }
+
+async function loadMaster() {
+  if (!S.cfg.gas) { S.masterState = 'none'; renderStatus(); return; }
+  S.masterState = 'loading'; renderStatus();
+  try {
+    const r = await api('masterList', {}, 'GET');
+    S.master = new Map();
+    r.items.forEach(putItem);
+    S.masterState = 'ok'; S.masterErr = '';
+  } catch (e) { S.masterState = 'error'; S.masterErr = errText(e); toast(S.masterErr, 'bad'); }
+  renderStatus(); renderPanel();
+}
+
+async function findItem(jan) {
+  const key = Logic.janKey(jan);
+  const hit = S.master.get(key);
+  if (hit) return hit;
+  const r = await api('masterGet', { jan: jan }, 'GET');
+  if (r.found) { putItem(r.item); return S.master.get(key); }
+  return null;
+}
+
+/* ---------- 音・バイブ・読み上げ ---------- */
+let audioCtx = null;
+function unlockMedia() {
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (AC && !audioCtx) audioCtx = new AC();
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  } catch (e) { }
+  try {
+    if (window.speechSynthesis && !S.speechUnlocked) {
+      const u = new SpeechSynthesisUtterance(''); u.volume = 0; speechSynthesis.speak(u); S.speechUnlocked = true;
+    }
+  } catch (e) { }
+}
+function beep(kind) {
+  if (!S.cfg.sound || !audioCtx) return;
+  try {
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.type = 'sine'; o.frequency.value = kind === 'ng' ? 220 : (kind === 'ok' ? 1320 : 1040);
+    g.gain.setValueAtTime(0.0001, audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.35, audioCtx.currentTime + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + (kind === 'ng' ? 0.28 : 0.12));
+    o.connect(g); g.connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime + 0.3);
+  } catch (e) { }
+}
+function buzz(ms) { try { if (S.cfg.vibrate && navigator.vibrate) navigator.vibrate(ms || 60); } catch (e) { } }
+function flash() { const b = $('#camBox'); b.classList.add('flash'); setTimeout(() => b.classList.remove('flash'), 260); }
+function speak(text) {
+  if (!S.cfg.speech || !text || !window.speechSynthesis) return;
+  try {
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text); u.lang = 'ja-JP'; u.rate = 1.05;
+    const v = speechSynthesis.getVoices().find((x) => /^ja/i.test(x.lang));
+    if (v) u.voice = v;
+    speechSynthesis.speak(u);
+  } catch (e) { }
+}
+function onDetected() { beep('scan'); buzz(60); flash(); }
+
+/* ---------- トースト・モーダル ---------- */
+function toast(msg, kind) {
+  const box = $('#toast'); const d = document.createElement('div');
+  d.textContent = msg; if (kind) d.className = kind; box.appendChild(d);
+  setTimeout(() => d.remove(), kind === 'bad' ? 5000 : 2800);
+}
+function openModal(html) { $('#sheet').innerHTML = html; $('#modal').classList.add('on'); S.modal = true; }
+function closeModal() { $('#modal').classList.remove('on'); $('#sheet').innerHTML = ''; S.modal = false; }
+function confirmDialog(o) {
+  return new Promise((resolve) => {
+    S.dlgResolve = resolve;
+    openModal('<h2>' + esc(o.title) + '</h2><div style="margin:8px 0">' + o.body + '</div>' +
+      '<div class="row" style="margin-top:12px"><button class="btn grow" data-act="dlgNo">戻る</button>' +
+      '<button class="btn ' + (o.danger ? 'danger' : 'pri') + ' grow" data-act="dlgYes">' + esc(o.ok || 'OK') + '</button></div>');
+  });
+}
+
+/* ---------- スキャナ ---------- */
+const Scanner = {
+  stream: null, timer: null, decode: null, canvas: document.createElement('canvas'), wake: null,
+  ready() { if (!window.ZXing) return false; if (!this.decode) { this.decode = Logic.createDecoder(window.ZXing, 'product'); this.decodeCode = Logic.createDecoder(window.ZXing, 'code'); } return true; },
+  async start() {
+    if (!this.ready()) throw new Error('ZXing-js を読み込めていません（ネットワークを確認してください）');
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      throw new Error('この表示ではカメラを使えません。https:// のURLで開いているか確認してください');
+    }
+    unlockMedia();
+    const tries = [
+      { video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false },
+      { video: { facingMode: 'environment' }, audio: false },
+      { video: true, audio: false }
+    ];
+    let stream = null, lastErr = null;
+    for (const c of tries) {
+      try { stream = await navigator.mediaDevices.getUserMedia(c); break; }
+      catch (e) { lastErr = e; if (e && (e.name === 'NotAllowedError' || e.name === 'SecurityError')) break; }
+    }
+    if (!stream) throw lastErr || new Error('カメラを開始できません');
+    this.stream = stream;
+    const v = $('#video'); v.srcObject = stream; v.setAttribute('playsinline', ''); v.muted = true;
+    await v.play();
+    const tr = stream.getVideoTracks()[0];
+    if (tr) {
+      tr.addEventListener('ended', () => { if (S.cam.state === 'on') setCam('error', 'カメラが止まりました。「カメラ開始」を押し直してください'); });
+      try { await tr.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }); } catch (e) { }
+    }
+    try { if (navigator.wakeLock) this.wake = await navigator.wakeLock.request('screen'); } catch (e) { }
+  },
+  stop() {
+    clearTimeout(this.timer); this.timer = null;
+    if (this.stream) this.stream.getTracks().forEach((t) => t.stop());
+    this.stream = null;
+    const v = $('#video'); v.srcObject = null;
+    try { if (this.wake) this.wake.release(); } catch (e) { }
+    this.wake = null;
+  },
+  loop() {
+    if (S.cam.state !== 'on') return;
+    const t0 = performance.now();
+    try {
+      const v = $('#video');
+      if (v.readyState >= 2 && v.videoWidth) {
+        const box = $('#camBox');
+        const r = Logic.cropRegion(v.videoWidth, v.videoHeight, box.clientWidth || 4, box.clientHeight || 3);
+        const sc = Math.min(1, 800 / r.w);
+        const w = Math.max(1, Math.round(r.w * sc)), h = Math.max(1, Math.round(r.h * sc));
+        const cv = this.canvas; cv.width = w; cv.height = h;
+        const ctx = cv.getContext('2d', { willReadFrequently: true });
+        ctx.drawImage(v, r.x, r.y, r.w, r.h, 0, 0, w, h);
+        const img = ctx.getImageData(0, 0, w, h);
+        const text = (S.codeScan ? this.decodeCode : this.decode)(Logic.rgbaToGray(img.data, w, h), w, h);
+        if (text) handleDetected(text);
+      }
+    } catch (e) { /* 1フレームの失敗は無視 */ }
+    this.timer = setTimeout(() => this.loop(), Math.max(25, 100 - (performance.now() - t0)));
+  }
+};
+
+function setCam(state, msg) {
+  S.cam.state = state; S.cam.msg = msg || '';
+  const m = $('#camMsg'), b = $('#camBtn');
+  const texts = { off: '「カメラ開始」を押してください', starting: 'カメラを起動しています…（許可を求められたら「許可」）', on: '', error: msg };
+  m.textContent = texts[state] || msg || ''; m.classList.toggle('hide', state === 'on');
+  b.textContent = state === 'on' ? 'カメラ停止' : (state === 'error' ? 'カメラをやり直す' : 'カメラ開始');
+  b.disabled = state === 'starting';
+}
+function camErrorMessage(e) {
+  const n = e && e.name;
+  if (n === 'NotAllowedError' || n === 'SecurityError') return 'カメラが許可されていません。iPhoneの「設定 → Safari → カメラ」を「確認」か「許可」にして、このページを開き直してください（ホーム画面アプリの場合は、一度Safariのブラウザ表示で許可すると直ることがあります）';
+  if (n === 'NotFoundError' || n === 'OverconstrainedError') return 'カメラが見つかりません';
+  if (n === 'NotReadableError' || n === 'AbortError') return 'カメラを他のアプリが使っているようです。他のアプリを閉じてやり直してください';
+  return (e && e.message) || 'カメラを開始できません';
+}
+async function camToggle() {
+  if (S.cam.state === 'on') { Scanner.stop(); setCam('off'); return; }
+  setCam('starting');
+  try { await Scanner.start(); setCam('on'); Scanner.loop(); }
+  catch (e) { Scanner.stop(); S.cam.lastError = (e && e.name ? e.name + ': ' : '') + (e && e.message || ''); setCam('error', camErrorMessage(e)); }
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && S.cam.state === 'on') { Scanner.stop(); setCam('off'); }
+});
+
+/* ---------- スキャン結果の処理 ---------- */
+function handleDetected(text) {
+  const now = Date.now(), last = S.cam.last;
+  const same = text === last.text && now - last.t < 1000;
+  last.text = text; last.t = now;       // 映っている間は更新し続け、外れてから1秒たつまで再受付しない
+  if (same || (S.modal && !S.codeScan) || S.sending || S.scanBusy) return;
+  if (S.codeScan) { onCodeScanned(text); return; }
+  onScan(text);
+}
+
+async function onScan(raw) {
+  if (S.codeScan) { onCodeScanned(String(raw)); return; }   // 手入力・写真からでも、コード読み取り中はそちらへ
+  const v = Logic.validateJan(raw);
+  if (!v.ok) { beep('ng'); toast(v.reason + '：' + raw, 'warn'); return; }
+  onDetected();
+  S.scanBusy = true;
+  try {
+    let item = null;
+    try { item = await findItem(v.jan); } catch (e) { toast(errText(e), 'bad'); return; }
+    if (!item) { beep('ng'); openRegister(v.jan, (it) => dispatchItem(it)); return; }
+    speak(Logic.speechText(item));
+    dispatchItem(item);
+  } finally { S.scanBusy = false; }
+}
+
+function dispatchItem(item) {
+  const m = S.mode;
+  if (m === 'recv') {
+    if (S.rcvTab === 'plan') {
+      if (!S.rcv) { toast('先に入荷予定を選んでください（予定なしの現物は「予定なし」タブへ）', 'warn'); return; }
+      rcvScan(item);
+    } else {
+      const st = S.spot;
+      if (st && Logic.janKey(st.item.jan) === Logic.janKey(item.jan)) st.qty += 1;
+      else S.spot = { item: item, qty: 1, location: item.location || '' };
+      renderPanel();
+    }
+  } else if (m === 'ship') {
+    toast('出荷は、検品済みの伝票を選んで確定します。伝票に紐づかない払い出しは「出庫」で行ってください', 'warn');
+  } else if (m === 'issue') {
+    const st = S.issue;
+    if (st && Logic.janKey(st.item.jan) === Logic.janKey(item.jan)) st.qty += 1;
+    else S.issue = { item: item, qty: 1, reason: st ? st.reason : '', memo: '' };
+    renderPanel();
+  } else if (m === 'move') {
+    S.move = { item: item, to: (S.move && S.move.to) || S.lastMoveTo || '' };
+    renderPanel();
+  } else if (m === 'insp') {
+    inspScan(item);
+  } else if (m === 'stk') {
+    stkScan(item);
+  } else {
+    S.stockView.q = item.jan; renderPanel();
+  }
+}
+
+/* ---------- ロケーション・伝票番号などのバーコード読み取り（Code 128／Code 39／QRも読む） ---------- */
+const CODE_LABELS = { location: 'ロケーションのバーコードを読み取ってください', slip: '伝票番号のバーコードを読み取ってください', tracking: '送り状のバーコードを読み取ってください', jan: 'JANのバーコードを読み取ってください' };
+async function startCodeScan(kind, cb) {
+  S.codeScan = { kind: kind, cb: cb };
+  updateCodeBar();
+  if (S.cam.state !== 'on' && S.cam.state !== 'starting') await camToggle();
+  if (S.cam.state !== 'on') { S.codeScan = null; updateCodeBar(); }
+}
+function cancelCodeScan() { S.codeScan = null; updateCodeBar(); }
+function onCodeScanned(text) {
+  const cs = S.codeScan;
+  S.codeScan = null; updateCodeBar();
+  onDetected();
+  if (cs && cs.cb) cs.cb(String(text).trim());
+}
+function updateCodeBar() {
+  const b = $('#codeBar'); if (!b) return;
+  if (S.codeScan) { b.querySelector('span').textContent = CODE_LABELS[S.codeScan.kind] || 'バーコードを読み取ってください'; b.classList.add('on'); }
+  else b.classList.remove('on');
+}
+
+/* ---------- 未登録JANの登録・商品の編集 ---------- */
+function openRegister(jan, cb, existing) {
+  S.reg = { jan: jan, cb: cb, existing: existing || null };
+  const ex = existing || {};
+  openModal('<h2>' + (existing ? '商品を編集' : 'マスタにないJANです') + '</h2>' +
+    '<div class="sub">JAN ' + esc(jan) + (existing ? '' : '（商品名・価格・ロケーションを入れると、マスタに登録して続けます）') + '</div>' +
+    '<label class="f">商品名（必須）</label><input type="text" id="rgName" value="' + esc(ex.name || '') + '" autocomplete="off">' +
+    '<label class="f">価格（円・任意）</label><input type="text" id="rgPrice" inputmode="numeric" value="' + esc(ex.price == null ? '' : ex.price) + '" autocomplete="off">' +
+    '<label class="f">ロケーション（棚番・任意）</label><input type="text" id="rgLoc" value="' + esc(ex.location || '') + '" autocomplete="off" list="locList">' +
+    '<datalist id="locList">' + locations().map((l) => '<option value="' + esc(l) + '">').join('') + '</datalist>' +
+    '<label class="f">SKU（ECの商品コード。複数は「 | 」で区切る・任意）</label><input type="text" id="rgSku" value="' + esc(ex.sku || '') + '" autocomplete="off">' +
+    '<div class="err" id="rgErr"></div>' +
+    '<div class="row" style="margin-top:12px"><button class="btn grow" data-act="regCancel">やめる</button><button class="btn pri grow" data-act="regSubmit">' + (existing ? '保存' : '登録して続ける') + '</button></div>');
+  setTimeout(() => { const el = $('#rgName'); if (el) el.focus(); }, 50);
+}
+async function regSubmit() {
+  const name = $('#rgName').value.trim(), price = $('#rgPrice').value.trim(), loc = $('#rgLoc').value, sku = $('#rgSku').value;
+  if (!name) { $('#rgErr').textContent = '商品名を入れてください'; return; }
+  const payload = { jan: S.reg.jan, name: name, price: price, location: loc, sku: sku };
+  try {
+    const r = await api('masterUpsert', payload);
+    putItem(r.item); const cb = S.reg.cb; S.reg = null; closeModal(); renderStatus();
+    toast((r.created ? '登録しました：' : '保存しました：') + r.item.name, 'ok');
+    if (cb) cb(S.master.get(Logic.janKey(r.item.jan)));
+    else renderPanel();
+  } catch (e) { $('#rgErr').textContent = errText(e); }
+}
+
+/* ---------- 共通の部品 ---------- */
+function hint(h) { return '<div class="hint">' + h + '</div>'; }
+function lastBox(m) { return m ? '<div class="card" style="background:var(--ok-bg);color:var(--ok);font-weight:700">' + esc(m) + '</div>' : ''; }
+function stkBanner() {
+  if (!S.stk || S.stk.result) return '';
+  return '<div class="banner warn" style="font-size:16px">棚卸中です（' + esc(S.stk.name) + '）<small>棚卸が終わるまで、入荷・出荷・出庫・棚移動は行わないでください。</small>' +
+    '<button class="btn sm" data-act="tab" data-mode="stk" style="margin-top:6px">棚卸へ戻る</button></div>';
+}
+function seg(items, cur, act) {
+  return '<div class="seg">' + items.map((i) => '<button class="' + (cur === i[0] ? 'on' : '') + '" data-act="' + act + '" data-t="' + i[0] + '">' + esc(i[1]) + '</button>').join('') + '</div>';
+}
+function stepper(act, inKey, val) {
+  return '<div class="stepper"><button data-act="' + act + '" data-d="-1" aria-label="減らす">−</button>' +
+    '<input type="number" id="' + inKey + '" data-in="' + inKey + '" inputmode="numeric" min="1" value="' + val + '">' +
+    '<button data-act="' + act + '" data-d="1" aria-label="増やす">＋</button><button class="btn" data-act="' + act + '" data-d="10">+10</button></div>';
+}
+function locField(id, inKey, val, scanAct, key) {
+  return '<div class="row"><input type="text" id="' + id + '" data-in="' + inKey + '"' + (key ? ' data-key="' + esc(key) + '"' : '') + ' value="' + esc(val) + '" autocomplete="off" list="locList2" placeholder="例: A-01">' +
+    '<button class="btn" data-act="' + scanAct + '"' + (key ? ' data-key="' + esc(key) + '"' : '') + '>📷 読む</button></div>';
+}
+function unresBox() {
+  const u = S.unres; if (!u || !u.list.length) return '';
+  return '<div class="card" style="border-color:var(--bad)"><div class="err">解決できないコードがあります。JAN（または📷で読み取り）を入れて「紐づけ」を押すと、そのSKUがその商品のSKU欄に登録されます。</div>' +
+    u.list.map((x, i) => '<div style="margin-top:8px"><b>' + esc(x.code) + '</b> <span class="sub">' + esc(x.reason || '') +
+      (x.orders && x.orders.length ? '（伝票 ' + esc(x.orders.slice(0, 5).join('、')) + (x.orders.length > 5 ? ' ほか' : '') + '）' : '') + '</span>' +
+      '<div class="row" style="margin-top:4px"><input type="text" inputmode="numeric" id="unrJan' + i + '" placeholder="JAN" autocomplete="off">' +
+      '<button class="btn sm" data-act="unrScan" data-i="' + i + '">📷</button><button class="btn sm pri" data-act="unrLink" data-i="' + i + '">紐づけ</button></div></div>').join('') +
+    '<div class="sub" style="margin-top:8px">すべて紐づけたら、もう一度「' + esc(u.retry) + '」を押してください。</div></div>';
+}
+async function unrLink(i) {
+  const x = S.unres.list[i]; const v = Logic.validateJan(($('#unrJan' + i) || {}).value);
+  if (!v.ok) { toast(v.reason, 'warn'); return; }
+  try {
+    const r = await api('skuLink', { jan: v.jan, sku: x.code });
+    putItem(r.item); S.unres.list.splice(i, 1);
+    toast('紐づけました：' + x.code + ' → ' + r.item.name, 'ok');
+    renderPanel();
+  } catch (e) { toast(errText(e), 'bad'); }
+}
+function unrScan(i) {
+  startCodeScan('jan', (t) => { const v = Logic.validateJan(t); const el = $('#unrJan' + i); if (el) el.value = v.ok ? v.jan : t; });
+}
+async function refreshPlans() {
+  if (!S.cfg.gas) return;
+  try { S.plans = (await api('planList', {}, 'GET')).plans; } catch (e) { S.plans = []; toast(errText(e), 'bad'); }
+  renderPanel();
+}
+async function refreshSlips() {
+  if (!S.cfg.gas) return;
+  try { S.slips = (await api('slipList', {}, 'GET')).slips; } catch (e) { S.slips = []; toast(errText(e), 'bad'); }
+  renderPanel();
+}
+
+/* ---------- 入荷 ---------- */
+function persistRcv() { if (S.rcv) store.set('wms.rcv', S.rcv); else store.del('wms.rcv'); }
+function renderRecv() {
+  let h = stkBanner() + seg([['plan', '予定を消し込む'], ['spot', '予定なし（現物）']], S.rcvTab, 'rcvTab');
+  if (S.rcvTab === 'spot') return h + renderSpot();
+  return h + (S.rcv ? renderRcvSession() : renderPlanList());
+}
+const PLAN_STATUSES = ['入荷待ち', '検品中', '一部入荷', '完了', 'キャンセル'];
+const PLAN_OPEN = ['入荷待ち', '検品中', '一部入荷'];
+const STATUS_TAG = { '入荷待ち': 'warn', '検品中': 'warn', '一部入荷': 'warn', '完了': 'ok', 'キャンセル': '', '未検品': 'warn', '検品済': 'ok', '出荷済': 'ok' };
+function planFilterOptions(cur) {
+  return [['open', '進行中（入荷待ち・検品中・一部入荷）'], ['all', 'すべて']].concat(PLAN_STATUSES.map((x) => [x, x]))
+    .map((o) => '<option value="' + esc(o[0]) + '" ' + (cur === o[0] ? 'selected' : '') + '>' + esc(o[1]) + '</option>').join('');
+}
+function planMatches(p, f) { return f === 'all' || (f === 'open' ? PLAN_OPEN.indexOf(p.status) >= 0 : p.status === f); }
+function renderPlanList() {
+  let h = lastBox(S.last.recv) +
+    '<div class="row" style="margin:6px 0"><button class="btn pri grow" data-act="planNewToggle">＋ 入荷予定を作る</button><button class="btn" data-act="planReload">更新</button></div>';
+  if (S.rcvShowNew) h += renderPlanNew();
+  if (!S.cfg.gas) return h + noConfigHint();
+  if (S.plans === null) return h + hint('読み込み中…');
+  h += '<select data-in="planFilter" style="margin-bottom:6px">' + planFilterOptions(S.planFilter) + '</select>';
+  const list = S.plans.filter((p) => planMatches(p, S.planFilter));
+  if (!S.plans.length) return h + hint('入荷予定はまだありません。「＋ 入荷予定を作る」で、便や伝票の明細（SKUまたはJAN、予定数）を登録すると、届いた分をスキャンで消し込めます。');
+  if (!list.length) return h + '<div class="card sub">この状態の入荷予定はありません。</div>';
+  list.forEach((p) => {
+    const open = PLAN_OPEN.indexOf(p.status) >= 0;
+    h += '<div class="item ' + (open ? 'short' : (p.status === '完了' ? 'match' : '')) + '"><div class="row"><div class="grow"><div style="font-weight:700">' + esc(p.name) + '</div>' +
+      '<div class="sub">' + esc(p.id) + '　作成 ' + esc(String(p.created).slice(5, 16)) + (p.supplier ? '　' + esc(p.supplier) : '') + '</div>' +
+      '<div class="sub">予定 ' + p.planned + ' / 検品 ' + p.inspected + ' / 入荷済 ' + p.received + ' / 残 ' + p.remaining + '</div>' +
+      '<div style="margin-top:4px"><span class="tag ' + (STATUS_TAG[p.status] || '') + '">' + esc(p.status) + '</span></div></div>' +
+      '<div style="display:flex;flex-direction:column;gap:6px"><button class="btn sm pri" data-act="rcvOpen" data-name="' + esc(p.name) + '">' + (open ? '消し込む' : '開く') + '</button>' +
+      (open && p.received === 0 ? '<button class="btn sm" data-act="planCancel" data-name="' + esc(p.name) + '">キャンセル</button>' : '') + '</div></div></div>';
+  });
+  return h;
+}
+function renderPlanNew() {
+  const u = S.rcvNew;
+  return '<div class="card"><div class="name">入荷予定を作る</div>' +
+    '<label class="f">予定名（便・伝票の名前。重複不可）</label><input type="text" data-in="pnName" value="' + esc(u.name) + '" autocomplete="off">' +
+    '<label class="f">明細（1行1品：SKUまたはJAN,予定数）</label><textarea data-in="pnText" placeholder="SKU-A,10&#10;4901777300446,3">' + esc(u.text) + '</textarea>' +
+    (u.errors.length ? '<div class="err">' + u.errors.slice(0, 8).map((x) => x.line + '行目: ' + esc(x.reason)).join('<br>') + '</div>' : '') +
+    '<div class="row wrap" style="margin-top:8px"><span class="sub">個数を省いた行は</span><input type="number" style="width:76px" min="1" data-in="pnDef" value="' + u.def + '"><span class="sub">個</span>' +
+    '<button class="btn sm grow" data-act="planFromMaster">マスタ全商品から作る</button></div>' +
+    '<button class="btn pri block" style="margin-top:10px" data-act="planCreate" ' + (S.sending ? 'disabled' : '') + '>この内容で予定を作る</button></div>' + unresBox();
+}
+async function planCreate() {
+  const u = S.rcvNew, name = u.name.trim();
+  if (!name) { toast('予定名を入れてください', 'warn'); return; }
+  const p = Logic.parseCodeQtyText(u.text, u.def);
+  u.errors = p.errors;
+  if (!p.rows.length || p.errors.length) { toast(p.rows.length ? '誤りのある行を直してください' : '明細が空です', 'warn'); renderPanel(); return; }
+  S.sending = true; renderPanel();
+  try {
+    const r = await api('planCreate', { name: name, items: p.rows.map((x) => ({ code: x.code, qty: x.qty })) });
+    toast('入荷予定を作りました：' + r.name + '（' + r.lines + '品 ' + r.total + '点）', 'ok');
+    S.rcvShowNew = false; S.rcvNew = { name: '', text: '', def: 1, errors: [] }; S.unres = null;
+    S.sending = false; await refreshPlans(); await rcvOpen(r.name);
+  } catch (e) {
+    if (e instanceof ApiError && e.code === 'unresolved') S.unres = { retry: '予定を作る', list: e.data.unresolved || [] };
+    toast(errText(e), 'bad');
+  } finally { S.sending = false; renderPanel(); }
+}
+async function rcvOpen(name) {
+  try {
+    const r = await api('planGet', { name: name }, 'GET');
+    S.rcv = { name: name, status: r.plan.status, last: null, lines: r.lines.map((l) => ({
+      jan: l.jan, key: Logic.janKey(l.jan), name: l.name, location: l.location, stock: l.stock, planned: l.planned, inspected: l.inspected,
+      received: l.received, state: l.state, now: 0, loc: l.location || '', extra: l.planned === 0 })) };
+    persistRcv(); renderPanel();
+  } catch (e) { toast(errText(e), 'bad'); }
+}
+function renderRcvSession() {
+  const s = S.rcv, sum = Logic.rcvSummary(s.lines);
+  const done = sum.short === 0 && sum.over === 0 && sum.extra === 0 && sum.total > 0;
+  let h = '<div class="banner ' + (done ? 'ok' : 'warn') + '">' +
+    (sum.nowTotal === 0 ? '計上する入荷はまだありません' : (sum.short === 0 ? '予定どおり入荷' : '不足あり（残りは入荷待ち）')) +
+    '<small>' + esc(s.name) + '（' + esc(s.status || '') + '）　今回計上 ' + sum.nowTotal + '点　計上後の残 ' + sum.remainAfter + '点</small></div>';
+  h += '<div class="row wrap" style="margin-bottom:4px"><span class="tag ok">一致 ' + sum.match + '</span><span class="tag warn">不足 ' + sum.short + '</span><span class="tag bad">超過 ' + sum.over + '</span><span class="tag bad">予定外 ' + sum.extra + '</span></div>';
+  s.lines.forEach((l) => {
+    const st = Logic.rcvStatus(l), total = l.inspected + l.now, d = total - l.planned;
+    const chip = st === 'match' ? '<span class="tag ok">OK</span>' : st === 'short' ? '<span class="tag warn">不足 ' + (-d) + '（入荷待ち）</span>' : st === 'over' ? '<span class="tag bad">超過 +' + d + '</span>' : st === 'extra' ? '<span class="tag bad">予定外</span>' : '<span class="tag">' + esc(l.state === '消込' ? '消込' : '入荷済み') + '</span>';
+    h += '<div class="item ' + (st === 'none' ? '' : st) + (s.last === l.key ? ' hot' : '') + '" data-row="' + esc(l.key) + '"><div class="row"><div class="grow"><div style="font-weight:700">' + esc(l.name) + '</div>' +
+      '<div class="sub">' + esc(l.jan) + ' ' + chip + '</div></div>' +
+      '<div class="nums" style="text-align:right">予定 ' + l.planned + ' / 入荷済 ' + l.received + '<br>検品 <b>' + total + '</b>' + (l.now ? ' <span class="sub">(+' + l.now + ')</span>' : '') + '</div></div>' +
+      '<div style="margin-top:6px">' + locField('rl-' + l.key, 'rcvLoc', l.loc, 'rcvLocScan', l.key) + '</div>' +
+      '<div class="row" style="margin-top:6px;justify-content:flex-end"><span class="sub">今回の追加</span><div class="mini"><button data-act="rcvAdj" data-key="' + esc(l.key) + '" data-d="-1">−</button>' +
+      '<input type="number" id="rn-' + esc(l.key) + '" data-in="rcvNow" data-key="' + esc(l.key) + '" inputmode="numeric" min="0" value="' + l.now + '" style="width:72px;text-align:center">' +
+      '<button data-act="rcvAdj" data-key="' + esc(l.key) + '" data-d="1">＋</button></div></div></div>';
+  });
+  h += '<div class="row wrap" style="margin-top:10px"><button class="btn" data-act="rcvAbort">中止（破棄）</button><button class="btn" data-act="rcvSave" ' + (S.sending || !s.lines.some((l) => l.now > 0) ? 'disabled' : '') + '>途中保存（検品中）</button>' +
+    '<button class="btn" data-act="rcvClose">予定を閉じる（消込）</button>' +
+    '<button class="btn pri grow" data-act="rcvCommit" ' + (S.sending || sum.nowTotal === 0 ? 'disabled' : '') + '>計上して確定</button></div>';
+  return h;
+}
+function rcvScan(item) {
+  const s = S.rcv, key = Logic.janKey(item.jan);
+  let l = s.lines.find((x) => x.key === key);
+  if (!l) { l = { jan: item.jan, key: key, name: item.name, location: item.location || '', stock: item.stock, planned: 0, inspected: 0, received: 0, state: '', now: 0, loc: item.location || '', extra: true }; s.lines.push(l); }
+  l.now += 1; s.last = key;
+  persistRcv(); renderPanel();
+  const el = document.querySelector('[data-row="' + CSS.escape(key) + '"]');
+  if (el && el.scrollIntoView) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+}
+async function rcvSave() {
+  const s = S.rcv; if (!s || S.sending) return;
+  const lines = s.lines.filter((l) => l.now > 0).map((l) => ({ jan: l.jan, count: l.inspected + l.now }));
+  if (!lines.length) return;
+  S.sending = true; renderPanel();
+  try {
+    const r = await api('planInspect', { name: s.name, lines: lines });
+    s.lines.forEach((l) => { l.inspected += l.now; l.now = 0; });
+    s.status = r.plan.status; persistRcv(); toast('検品済数を保存しました（' + r.plan.status + '）。在庫はまだ動いていません', 'ok');
+  } catch (e) { toast(errText(e), 'bad'); }
+  finally { S.sending = false; renderPanel(); }
+}
+async function rcvCommit() {
+  const s = S.rcv; if (!s || S.sending) return;
+  const rows = s.lines.filter((l) => l.inspected + l.now > l.received);
+  if (!rows.length) { toast('計上できる入荷がありません', 'warn'); return; }
+  const sum = Logic.rcvSummary(s.lines);
+  const body = '<table class="t"><tr><th>商品</th><th class="n">今回</th><th class="n">在庫</th><th class="n">残</th></tr>' +
+    rows.map((l) => {
+      const total = l.inspected + l.now, delta = total - l.received;
+      const it = S.master.get(l.key), st = it ? it.stock : l.stock, locNew = Logic.normLocation(l.loc), chg = locNew && locNew !== (it ? it.location : l.location);
+      return '<tr><td>' + esc(l.name) + (l.extra ? ' <span class="tag bad">予定外</span>' : '') + (Logic.rcvStatus(l) === 'over' ? ' <span class="tag bad">超過</span>' : '') +
+        (chg ? '<div class="sub">ロケ ' + esc((it ? it.location : l.location) || '未設定') + ' → ' + esc(locNew) + '</div>' : '') + '</td><td class="n">+' + delta + '</td><td class="n">' + st + ' → ' + (st + delta) + '</td><td class="n">' + (l.extra ? '-' : Math.max(0, l.planned - total)) + '</td></tr>';
+    }).join('') + '</table>' +
+    '<div class="sub" style="margin-top:6px">' + (sum.remainAfter > 0 ? '計上後も ' + sum.remainAfter + '点は「入荷待ち」として残ります（状態: 一部入荷）。' : '全数入荷になります（状態: 完了）。') + '</div>';
+  if (!(await confirmDialog({ title: '入荷を計上（確認）', ok: '計上する', body: body }))) return;
+  S.sending = true; renderPanel();
+  try {
+    const r = await api('planReceive', { name: s.name, lines: rows.map((l) => ({ jan: l.jan, count: l.inspected + l.now, location: l.loc })) });
+    r.items.forEach(putItem);
+    S.last.recv = '入荷を計上しました：' + r.received + '点（予定「' + s.name + '」→ ' + r.plan.status + (r.plan.remaining > 0 ? '・入荷待ち ' + r.plan.remaining + '点' : '') + '）';
+    S.rcv = null; persistRcv(); beep('ok'); buzz(120);
+    S.sending = false; await refreshPlans();
+  } catch (e) { beep('ng'); toast(errText(e), 'bad'); }
+  finally { S.sending = false; renderPanel(); }
+}
+async function rcvClose() {
+  const s = S.rcv; if (!s || S.sending) return;
+  const rem = s.lines.reduce((a, l) => a + (l.extra || l.state === '消込' ? 0 : Math.max(0, l.planned - l.received)), 0);
+  if (!(await confirmDialog({ title: '予定を閉じる（消込）', ok: '閉じる', danger: true,
+    body: '<div>' + esc(s.name) + '</div><div class="sub">残り ' + rem + '点を「もう来ないもの」として閉じます（状態: 完了）。在庫は変わりません。今回数えた分は計上されないので、先に「計上して確定」してください。</div>' }))) return;
+  S.sending = true; renderPanel();
+  try {
+    const r = await api('planClose', { name: s.name });
+    toast('予定を閉じました（' + r.closed + '行）', 'ok');
+    S.rcv = null; persistRcv(); S.sending = false; await refreshPlans();
+  } catch (e) { toast(errText(e), 'bad'); }
+  finally { S.sending = false; renderPanel(); }
+}
+async function planCancel(name) {
+  if (!(await confirmDialog({ title: '入荷予定をキャンセル', ok: 'キャンセルする', danger: true, body: '<div>' + esc(name) + '</div><div class="sub">入荷済みが無い予定だけキャンセルできます。行は消えません（状態がキャンセルになります）。</div>' }))) return;
+  try { await api('planCancel', { name: name }); toast('キャンセルしました：' + name, 'ok'); await refreshPlans(); } catch (e) { toast(errText(e), 'bad'); }
+}
+
+/* ---- 予定なしの現物入荷 ---- */
+function renderSpot() {
+  const st = S.spot;
+  let h = lastBox(S.last.spot);
+  if (!st) return h + hint('入荷する商品のバーコードを読み取ってください（予定のない現物入荷）。<br>数量を決めて「確定」を押すと、確認画面のあとで在庫に反映されます。') + noConfigHint();
+  const it = st.item, after = it.stock + st.qty, badQty = !(Number.isInteger(st.qty) && st.qty >= 1);
+  const locNew = Logic.normLocation(st.location), locChanged = locNew && locNew !== it.location;
+  return h + '<div class="card"><div class="name">' + esc(it.name) + '</div>' +
+    '<div class="sub">JAN ' + esc(it.jan) + (it.price != null ? ' ・ ' + esc(Logic.yen(it.price)) : '') + '</div>' +
+    '<div class="kv"><div>現在庫<b>' + it.stock + '</b></div><div>入荷後<b>' + (badQty ? '-' : after) + '</b></div></div>' +
+    '<label class="f">ロケーション（変更できます）' + (locChanged ? ' <span class="tag warn">変更あり：' + esc(it.location || '未設定') + ' → ' + esc(locNew) + '</span>' : '') + '</label>' +
+    locField('spotLoc', 'spotLoc', st.location, 'spotLocScan') +
+    '<label class="f">数量</label>' + stepper('spotQty', 'spotQty', st.qty) +
+    '<div class="row" style="margin-top:12px"><button class="btn" data-act="spotCancel">取り消し</button>' +
+    '<button class="btn pri grow" data-act="spotConfirm" ' + ((badQty || S.sending) ? 'disabled' : '') + '>入荷を確認する</button></div></div>';
+}
+async function spotConfirm() {
+  const st = S.spot; if (!st || S.sending) return;
+  const it = st.item, locNew = Logic.normLocation(st.location), chg = locNew && locNew !== it.location;
+  const ok = await confirmDialog({ title: '入荷の確認', ok: '入荷する', body:
+    '<div style="font-weight:700">' + esc(it.name) + '</div><div class="kv"><div>入荷<b>+' + st.qty + '</b></div><div>在庫<b>' + it.stock + ' → ' + (it.stock + st.qty) + '</b></div></div>' +
+    (chg ? '<div class="tag warn">ロケ ' + esc(it.location || '未設定') + ' → ' + esc(locNew) + '</div>' : '') });
+  if (!ok) return;
+  S.sending = true; renderPanel();
+  try {
+    const r = await api('receive', { jan: it.jan, qty: st.qty, location: st.location });
+    putItem(r.item);
+    S.last.spot = '入荷 +' + st.qty + '：' + r.item.name + ' → 在庫 ' + r.item.stock;
+    S.spot = null; beep('ok'); buzz(120);
+  } catch (e) { beep('ng'); toast(errText(e), 'bad'); }
+  finally { S.sending = false; renderPanel(); }
+}
+
+/* ---------- 出荷（検品済みの伝票を選んで確定） ---------- */
+function renderShip() {
+  let h = stkBanner() + lastBox(S.last.ship);
+  if (S.shipSel) return h + renderShipSel();
+  h += '<div class="row" style="margin:6px 0"><input type="search" data-in="shipQ" placeholder="伝票番号で絞り込み" value="' + esc(S.shipQ) + '" id="shipQ" autocomplete="off"><button class="btn" data-act="shipReload">更新</button></div>';
+  if (!S.cfg.gas) return h + noConfigHint();
+  if (S.slips === null) return h + hint('読み込み中…');
+  const q = S.shipQ.trim().toUpperCase();
+  const ready = S.slips.filter((s) => s.status === '検品済' && (!q || s.no.toUpperCase().indexOf(q) >= 0));
+  const waiting = S.slips.filter((s) => s.status === '未検品').length;
+  h += hint('出荷は、<b>検品済み</b>の伝票を選んで確定します（確定すると、明細の分だけ在庫が減ります）。' + (waiting ? '<br>未検品の伝票が ' + waiting + ' 件あります。「検品」タブで検品してください。' : '') + '<br>伝票に紐づかない払い出しは「出庫」タブです。');
+  if (!ready.length) return h + '<div class="card sub">出荷できる（検品済みの）伝票はありません。</div>';
+  ready.forEach((s) => {
+    h += '<div class="item match"><div class="row"><div class="grow"><div style="font-weight:700">' + esc(s.no) + '</div><div class="sub">' + s.lines + '品 ' + s.qty + '点　検品 ' + esc(String(s.inspectedAt).slice(5, 16)) + (s.tracking ? ' <span class="tag loc">📦 ' + esc(s.tracking) + '</span>' : ' <span class="tag">送り状なし</span>') + '</div></div>' +
+      '<button class="btn sm pri" data-act="shipOpen" data-no="' + esc(s.no) + '">選ぶ</button></div></div>';
+  });
+  return h;
+}
+function renderShipSel() {
+  const sel = S.shipSel, pv = Logic.shipPreview(sel.lines);
+  let h = '<div class="card"><div class="name">' + esc(sel.slip.no) + '</div><div class="sub">' + sel.slip.lines + '品 ' + pv.total + '点' + (sel.slip.tracking ? '　送り状 ' + esc(sel.slip.tracking) + (sel.slip.carrier ? '（' + esc(sel.slip.carrier) + '）' : '') : '') + '</div>' +
+    '<table class="t" style="margin-top:6px"><tr><th>商品</th><th class="n">数量</th><th class="n">在庫（前→後）</th></tr>' +
+    pv.rows.map((r) => '<tr><td>' + esc(r.name) + '<div class="sub">' + esc(r.jan) + ' <span class="tag loc">' + esc(r.location || '未設定') + '</span></div></td><td class="n">' + r.qty + '</td>' +
+      '<td class="n ' + (r.short ? 'diff-pos' : '') + '">' + r.stock + ' → ' + r.after + (r.short ? '<div class="tag bad">不足</div>' : '') + '</td></tr>').join('') + '</table>';
+  if (pv.short) h += '<div class="err" style="margin-top:6px">在庫が足りない明細が ' + pv.short + ' 件あります。入荷してから出荷してください。</div>';
+  h += '<div class="row" style="margin-top:10px"><button class="btn" data-act="shipBack">戻る</button><button class="btn pri grow" data-act="shipConfirm" ' + ((pv.short || S.sending) ? 'disabled' : '') + '>出荷を確定</button></div></div>';
+  return h;
+}
+async function shipOpen(no) {
+  try { const r = await api('slipGet', { no: no }, 'GET'); S.shipSel = r; renderPanel(); }
+  catch (e) { toast(errText(e), 'bad'); }
+}
+async function shipConfirm() {
+  const sel = S.shipSel; if (!sel || S.sending) return;
+  const pv = Logic.shipPreview(sel.lines);
+  if (pv.short) { toast('在庫が足りない明細があります', 'warn'); return; }
+  const ok = await confirmDialog({ title: '出荷の確認', ok: '出荷する', body:
+    '<div style="font-weight:700">' + esc(sel.slip.no) + '</div><div class="sub">' + sel.slip.lines + '品 ' + pv.total + '点の在庫が減ります。出荷済みになり、取り消せません。</div>' });
+  if (!ok) return;
+  S.sending = true; renderPanel();
+  try {
+    const r = await api('slipShip', { no: sel.slip.no });
+    r.items.forEach(putItem);
+    S.last.ship = '出荷しました：' + r.slip.no + '（' + r.slip.lines + '品 ' + r.slip.qty + '点）';
+    S.shipSel = null; beep('ok'); buzz(120);
+    S.sending = false; await refreshSlips();
+  } catch (e) {
+    beep('ng');
+    let m = errText(e);
+    if (e instanceof ApiError && e.code === 'insufficient_stock' && e.data.short) m = '在庫が足りません：' + e.data.short.map((x) => x.name + '（在庫' + x.stock + '／必要' + x.qty + '）').join('、');
+    toast(m, 'bad');
+    if (e instanceof ApiError) { try { S.shipSel = await api('slipGet', { no: sel.slip.no }, 'GET'); } catch (e2) { } }
+  } finally { S.sending = false; renderPanel(); }
+}
+
+/* ---------- 出庫（伝票に紐づかない払い出し。理由は必須） ---------- */
+const REASONS = ['廃棄', '破損', '社内消費', 'サンプル', '調整'];
+function renderIssue() {
+  const st = S.issue;
+  let h = stkBanner() + lastBox(S.last.issue);
+  if (!st) return h + hint('伝票に紐づかない払い出し（廃棄・破損・社内消費など）をする商品のバーコードを読み取ってください。<br>理由は必須で、履歴のメモに残ります。販売の出荷は「出荷」タブ（伝票）です。') + noConfigHint();
+  const it = st.item, after = it.stock - st.qty, over = after < 0, badQty = !(Number.isInteger(st.qty) && st.qty >= 1), noReason = !Logic.reasonOk(st.reason);
+  return h + '<div class="card"><div class="name">' + esc(it.name) + '</div>' +
+    '<div class="sub">JAN ' + esc(it.jan) + ' <span class="tag loc">' + esc(it.location || '未設定') + '</span></div>' +
+    '<div class="kv"><div>現在庫<b>' + it.stock + '</b></div><div>出庫後<b class="' + (over ? 'diff-pos' : '') + '">' + (badQty ? '-' : after) + '</b></div></div>' +
+    '<label class="f">数量</label>' + stepper('issueQty', 'issueQty', st.qty) +
+    (over ? '<div class="err" style="margin-top:6px">在庫（' + it.stock + '）を超えています</div>' : '') +
+    '<label class="f">理由（必須）</label><div class="chips">' + REASONS.map((r) => '<label style="cursor:pointer"><input type="radio" name="rs" data-act="issueReason" data-r="' + esc(r) + '" ' + (st.reason === r ? 'checked' : '') + '>' + esc(r) + '</label>').join('') + '</div>' +
+    '<input type="text" id="issueReason" data-in="issueReason" value="' + esc(st.reason) + '" placeholder="その他の理由を入力" autocomplete="off" style="margin-top:6px">' +
+    '<label class="f">メモ（任意）</label><input type="text" id="issueMemo" data-in="issueMemo" value="' + esc(st.memo) + '" autocomplete="off">' +
+    (noReason ? '<div class="err" style="margin-top:6px">理由を選ぶか入力してください</div>' : '') +
+    '<div class="row" style="margin-top:12px"><button class="btn" data-act="issueCancel">取り消し</button>' +
+    '<button class="btn pri grow" data-act="issueConfirm" ' + ((over || badQty || noReason || S.sending) ? 'disabled' : '') + '>出庫を確認する</button></div></div>';
+}
+async function issueConfirm() {
+  const st = S.issue; if (!st || S.sending) return;
+  const it = st.item, reason = st.reason.trim();
+  const ok = await confirmDialog({ title: '出庫の確認', ok: '出庫する', danger: true, body:
+    '<div style="font-weight:700">' + esc(it.name) + '</div><div class="kv"><div>出庫<b>−' + st.qty + '</b></div><div>在庫<b>' + it.stock + ' → ' + (it.stock - st.qty) + '</b></div></div><div>理由: ' + esc(reason) + '</div>' });
+  if (!ok) return;
+  S.sending = true; renderPanel();
+  try {
+    const r = await api('issue', { jan: it.jan, qty: st.qty, reason: reason, memo: st.memo });
+    putItem(r.item);
+    S.last.issue = '出庫 −' + st.qty + '：' + r.item.name + '（' + reason + '）→ 在庫 ' + r.item.stock;
+    S.issue = null; beep('ok'); buzz(120);
+  } catch (e) {
+    beep('ng'); toast(errText(e), 'bad');
+    if (e instanceof ApiError && e.data && e.data.stock !== undefined) st.item.stock = e.data.stock;
+  } finally { S.sending = false; renderPanel(); }
+}
+
+/* ---------- 棚移動（在庫数は変えず、ロケーションだけ変える） ---------- */
+function renderMove() {
+  const st = S.move;
+  let h = stkBanner() + lastBox(S.last.move);
+  if (!st) return h + hint('場所を移す商品のバーコードを読み取ってください。<br>移動先を入力（または📷でロケのバーコードを読み取り）して確定すると、在庫数は変わらず、ロケーションだけが変わって履歴に残ります。') + noConfigHint();
+  const it = st.item, to = Logic.normLocation(st.to), same = to && to === it.location;
+  return h + '<div class="card"><div class="name">' + esc(it.name) + '</div>' +
+    '<div class="sub">JAN ' + esc(it.jan) + '</div>' +
+    '<div class="kv"><div>今のロケーション<b>' + esc(it.location || '未設定') + '</b></div><div>在庫（変わりません）<b>' + it.stock + '</b></div></div>' +
+    '<label class="f">移動先のロケーション</label>' + locField('moveTo', 'moveTo', st.to, 'moveScan') +
+    (same ? '<div class="err" style="margin-top:6px">今のロケーションと同じです</div>' : '') +
+    '<div class="row" style="margin-top:12px"><button class="btn" data-act="moveCancel">取り消し</button>' +
+    '<button class="btn pri grow" data-act="moveConfirm" ' + ((!to || same || S.sending) ? 'disabled' : '') + '>移動を確認する</button></div></div>';
+}
+async function moveConfirm() {
+  const st = S.move; if (!st || S.sending) return;
+  const it = st.item, to = Logic.normLocation(st.to);
+  const ok = await confirmDialog({ title: '棚移動の確認', ok: '移動する', body:
+    '<div style="font-weight:700">' + esc(it.name) + '</div><div class="kv"><div>ロケーション<b>' + esc(it.location || '未設定') + ' → ' + esc(to) + '</b></div><div>在庫<b>' + it.stock + '（変わらず）</b></div></div>' });
+  if (!ok) return;
+  S.sending = true; renderPanel();
+  try {
+    const r = await api('move', { jan: it.jan, to: to });
+    putItem(r.item); S.lastMoveTo = to;
+    S.last.move = '棚移動：' + r.item.name + '（' + (it.location || '未設定') + ' → ' + r.item.location + '）';
+    S.move = null; beep('ok'); buzz(120);
+  } catch (e) { beep('ng'); toast(errText(e), 'bad'); }
+  finally { S.sending = false; renderPanel(); }
+}
+
+/* ---------- 検品（出荷検品＝伝票／リスト照合） ---------- */
+function persistInsp() { if (S.insp) store.set('wms.insp', S.insp); else store.del('wms.insp'); }
+function renderInsp() {
+  const s = S.insp;
+  if (!s) return stkBanner() + seg([['slip', '出荷検品（伝票）'], ['list', 'リスト照合のみ']], S.inspTab, 'inspTab') + (S.inspTab === 'list' ? renderInspListSetup() : renderSlipSetup());
+  if (s.saved) return renderInspSaved();
+  const sum = Logic.inspSummary(s.rows), isSlip = s.kind === 'slip';
+  let h = '<div class="banner ' + (sum.allOk ? 'ok' : 'warn') + '">' + (sum.allOk ? '検品OK' : '差異あり') +
+    '<small>' + (isSlip ? '出荷検品　伝票 ' : '') + esc(s.name) + '　全' + sum.total + '品　実績 ' + sum.actual + ' / 予定 ' + sum.planned + '</small></div>';
+  h += '<div class="row wrap" style="margin-bottom:4px"><span class="tag ok">一致 ' + sum.match + '</span><span class="tag warn">不足 ' + sum.short + '</span>' +
+    '<span class="tag bad">超過 ' + sum.over + '</span><span class="tag bad">予定外 ' + sum.extra + '</span></div>';
+  if (isSlip) h += trackingBlock(s);
+  s.rows.forEach((r) => {
+    const st = Logic.inspStatus(r), d = r.actual - r.planned;
+    const chip = st === 'match' ? '<span class="tag ok">OK</span>' : st === 'short' ? '<span class="tag warn">不足 ' + (-d) + '</span>' : st === 'over' ? '<span class="tag bad">超過 +' + d + '</span>' : st === 'extra' ? '<span class="tag bad">予定外 ' + r.actual + '</span>' : '';
+    h += '<div class="item ' + st + (s.last === r.key ? ' hot' : '') + '" data-row="' + esc(r.key) + '"><div class="row"><div class="grow"><div style="font-weight:700">' + esc(r.name || '（マスタ未登録）') + '</div>' +
+      '<div class="sub">' + esc(r.jan) + ' <span class="tag loc">' + esc(r.location || '未設定') + '</span> ' + chip + '</div></div>' +
+      '<div class="nums" style="text-align:right">予定 ' + r.planned + '<br>実績 <b>' + r.actual + '</b></div></div>' +
+      '<div class="row" style="margin-top:6px;justify-content:flex-end"><div class="mini"><button data-act="inspAdj" data-key="' + esc(r.key) + '" data-d="-1">−</button><button data-act="inspAdj" data-key="' + esc(r.key) + '" data-d="1">＋</button></div>' +
+      (r.name ? '' : '<button class="btn sm" data-act="inspReg" data-key="' + esc(r.key) + '">登録</button>') + '</div></div>';
+  });
+  h += '<div class="row" style="margin-top:10px"><button class="btn" data-act="inspAbort">中止</button>' +
+    (isSlip ? '<button class="btn" data-act="inspDraft" ' + ((S.sending || !s.rows.some((r) => r.actual > 0)) ? 'disabled' : '') + '>途中保存</button><button class="btn pri grow" data-act="inspSave" ' + ((!sum.allOk || S.sending || (s.tracking && !s.trkOk)) ? 'disabled' : '') + '>検品済みにする</button>'
+      : '<button class="btn pri grow" data-act="inspSave" ' + (S.sending ? 'disabled' : '') + '>確定して検品履歴に保存</button>') + '</div>';
+  if (isSlip && !sum.allOk) h += '<div class="sub" style="margin-top:6px">全数が一致すると「検品済みにする」を押せます。差異は実物を直してください（途中経過はこの端末に残ります）。</div>';
+  return h;
+}
+function renderInspListSetup() {
+  const u = S.inspSetup; if (!u.name) u.name = '照合 ' + stamp();
+  return '<div class="card"><div class="name">リスト照合（在庫は動きません）</div><div class="sub">予定リスト（JANと予定数）に対して、スキャンで実績を数えて照合します。結果は検品履歴に残ります。</div>' +
+    '<label class="f">名前</label><input type="text" data-in="inspName" value="' + esc(u.name) + '" autocomplete="off">' +
+    '<label class="f">予定リスト（1行1品：JAN,予定数）</label>' +
+    '<textarea data-in="inspPlan" placeholder="4901777300446,3&#10;4549131500014,1">' + esc(u.plan) + '</textarea>' +
+    (u.errors.length ? '<div class="err">' + u.errors.slice(0, 8).map((x) => x.line + '行目: ' + esc(x.reason)).join('<br>') + (u.errors.length > 8 ? '<br>ほか' + (u.errors.length - 8) + '件' : '') + '</div>' : '') +
+    '<div class="row wrap" style="margin-top:8px"><span class="sub">サンプルから作る：各</span><input type="number" style="width:76px" min="1" data-in="inspDef" value="' + u.defQty + '"><span class="sub">個</span>' +
+    '<button class="btn sm grow" data-act="inspFromMaster">マスタ全商品から予定を作る</button></div>' +
+    '<button class="btn pri block" style="margin-top:10px" data-act="inspStart">照合を開始</button></div>' + noConfigHint();
+}
+function renderSlipSetup() {
+  let h = '<div class="row" style="margin:6px 0"><button class="btn grow" data-act="slipScan">📷 伝票番号を読む</button><button class="btn" data-act="slipPanelToggle">＋ 伝票を取り込む</button><button class="btn" data-act="slipReload">更新</button></div>';
+  if (S.slipPanel) h += renderSlipPanel();
+  if (!S.cfg.gas) return h + noConfigHint();
+  if (S.slips === null) return h + hint('読み込み中…');
+  const todo = S.slips.filter((s) => s.status === '未検品' || s.status === '検品中'), done = S.slips.filter((s) => s.status === '検品済').length;
+  if (!todo.length) h += hint('検品する（未検品の）伝票はありません。「＋ 伝票を取り込む」でCSVから作るか、手入力で作ってください。');
+  todo.forEach((s) => {
+    h += '<div class="item"><div class="row"><div class="grow"><div style="font-weight:700">' + esc(s.no) + '</div><div class="sub">' + s.lines + '品 ' + s.qty + '点　取込 ' + esc(String(s.importedAt).slice(5, 16)) + ' <span class="tag">' + esc(s.source || '') + '</span> <span class="tag ' + (STATUS_TAG[s.status] || '') + '">' + esc(s.status) + (s.inspected ? ' ' + s.inspected + '/' + s.qty : '') + '</span>' +
+      (s.tracking ? ' <span class="tag loc">📦 ' + esc(s.tracking) + '</span>' : '') + '</div></div>' +
+      '<div style="display:flex;flex-direction:column;gap:6px"><button class="btn sm pri" data-act="slipStart" data-no="' + esc(s.no) + '">' + (s.status === '検品中' ? '続きを検品' : '検品開始') + '</button>' +
+      '<button class="btn sm" data-act="slipTrack" data-no="' + esc(s.no) + '">送り状</button><button class="btn sm" data-act="slipVoid" data-no="' + esc(s.no) + '">キャンセル</button></div></div></div>';
+  });
+  if (done) h += '<div class="sub" style="margin-top:6px">検品済みの伝票 ' + done + ' 件は「出荷」タブで出荷できます。</div>';
+  return h;
+}
+function renderSlipPanel() {
+  const f = S.slipForm, r = S.slipRes;
+  let h = '<div class="card"><div class="name">出荷伝票を取り込む</div>' +
+    '<div class="sub">CSV（1行1明細）：<b>伝票番号, SKUまたはJAN, 数量</b>。見出し行は自動で判断します（Shopifyの Name／Lineitem sku／Lineitem quantity も可）。注文単位で1伝票になります。</div>' +
+    '<textarea data-in="slCsv" placeholder="伝票番号,SKUまたはJAN,数量&#10;#1001,SKU-A,2&#10;#1001,4901777300446,1">' + esc(f.csv) + '</textarea>' +
+    '<div class="row wrap" style="margin-top:6px"><button class="btn sm" data-act="slipCsvFile">ファイルを選ぶ</button><button class="btn pri grow" data-act="slipImport" ' + (S.sending ? 'disabled' : '') + '>CSVを取り込む</button></div>';
+  if (r) {
+    h += '<div style="margin-top:8px" class="row wrap"><span class="tag ok">作成 ' + r.created + '伝票（' + r.lines + '行）</span><span class="tag">取込済みで無視 ' + r.duplicates.length + '</span><span class="tag ' + (r.errors.length ? 'bad' : '') + '">作れなかった ' + r.errors.length + '</span></div>';
+    if (r.errors.length) h += '<table class="t" style="margin-top:6px">' + r.errors.slice(0, 15).map((e) => '<tr><td>' + esc(e.no || (e.line ? e.line + '行' : '')) + '</td><td>' + esc(e.reason) + '</td></tr>').join('') + '</table>';
+  }
+  h += '<hr style="border:0;border-top:1px solid var(--line);margin:12px 0"><div class="name" style="font-size:16px">1伝票を手入力で作る</div>' +
+    '<label class="f">伝票番号</label><input type="text" data-in="slNo" value="' + esc(f.no) + '" autocomplete="off">' +
+    '<label class="f">明細（1行1品：SKUまたはJAN,数量）</label><textarea data-in="slLines" style="min-height:80px">' + esc(f.lines) + '</textarea>' +
+    '<button class="btn block" style="margin-top:6px" data-act="slipCreateManual" ' + (S.sending ? 'disabled' : '') + '>この伝票を作る</button>' + trackingImportHtml() + '</div>';
+  return h + unresBox();
+}
+async function slipImport() {
+  const text = S.slipForm.csv;
+  if (!text.trim()) { toast('CSVを貼り付けるか、ファイルを選んでください', 'warn'); return; }
+  S.sending = true; renderPanel();
+  try {
+    const r = await api('slipImport', { text: text });
+    S.slipRes = r; S.unres = r.unresolved.length ? { retry: 'CSVを取り込む', list: r.unresolved } : null;
+    toast('取り込みました：' + r.created + '伝票', r.created ? 'ok' : 'warn');
+    S.sending = false; await refreshSlips();
+  } catch (e) { toast(errText(e), 'bad'); }
+  finally { S.sending = false; renderPanel(); }
+}
+async function slipCreateManual() {
+  const f = S.slipForm, no = f.no.trim();
+  if (!no) { toast('伝票番号を入れてください', 'warn'); return; }
+  const p = Logic.parseCodeQtyText(f.lines, 1);
+  if (!p.rows.length || p.errors.length) { toast(p.rows.length ? '明細に誤りがあります（' + p.errors[0].line + '行目）' : '明細が空です', 'warn'); return; }
+  S.sending = true; renderPanel();
+  try {
+    await api('slipCreate', { no: no, items: p.rows.map((x) => ({ code: x.code, qty: x.qty })) });
+    toast('伝票を作りました：' + no, 'ok');
+    S.slipForm.no = ''; S.slipForm.lines = ''; S.unres = null;
+    S.sending = false; await refreshSlips();
+  } catch (e) {
+    if (e instanceof ApiError && e.code === 'unresolved') S.unres = { retry: 'この伝票を作る', list: e.data.unresolved || [] };
+    toast(errText(e), 'bad');
+  } finally { S.sending = false; renderPanel(); }
+}
+async function slipStart(no) {
+  try {
+    const r = await api('slipGet', { no: no }, 'GET');
+    S.insp = { kind: 'slip', slipNo: r.slip.no, name: r.slip.no, tracking: r.slip.tracking || '', carrier: r.slip.carrier || '', trkScan: '', trkOk: false, started: Date.now(), last: null, saved: null,
+      rows: r.lines.map((l) => ({ jan: l.jan, key: Logic.janKey(l.jan), name: l.name, location: l.location || '', planned: l.qty, actual: l.done || 0 })) };
+    persistInsp(); renderPanel();
+  } catch (e) { toast(errText(e), 'bad'); }
+}
+function slipScanStart() {
+  startCodeScan('slip', async (text) => {
+    await refreshSlipsQuiet();
+    const k = String(text).trim().toUpperCase();
+    const hit = (S.slips || []).find((s) => s.no.toUpperCase() === k && (s.status === '未検品' || s.status === '検品中'));
+    if (hit) { slipStart(hit.no); return; }
+    const other = (S.slips || []).find((s) => s.no.toUpperCase() === k);
+    toast(other ? '伝票 ' + other.no + ' は ' + other.status + ' のため検品できません' : '伝票「' + text + '」は見つかりません', 'warn');
+  });
+}
+async function refreshSlipsQuiet() {
+  try { S.slips = (await api('slipList', {}, 'GET')).slips; } catch (e) { toast(errText(e), 'bad'); }
+}
+/* ---------- 送り状番号（登録・送り状検品・CSV取り込み） ---------- */
+const CARRIERS = ['ヤマト運輸', '佐川急便', '日本郵便', 'クリックポスト'];
+function trackingBlock(s) {
+  if (!s.tracking) {
+    return '<div class="hint" style="margin:6px 0">この伝票には送り状番号がありません（送り状検品は行いません）。 <button class="btn sm" data-act="slipTrack" data-no="' + esc(s.slipNo) + '">送り状番号を登録</button></div>';
+  }
+  const ok = s.trkOk, scanned = s.trkScan;
+  return '<div class="card"><div class="row"><div class="grow"><b>送り状検品</b><div class="sub">伝票の送り状番号: ' + esc(s.tracking) + (s.carrier ? '（' + esc(s.carrier) + '）' : '') + '</div></div>' +
+    '<span class="tag ' + (ok ? 'ok' : (scanned ? 'bad' : 'warn')) + '">' + (ok ? '一致' : (scanned ? '不一致' : '未確認')) + '</span></div>' +
+    '<div class="row" style="margin-top:6px"><input type="text" id="trkIn" data-in="trkIn" value="' + esc(scanned) + '" placeholder="送り状番号を読む／入力" autocomplete="off"><button class="btn" data-act="trkScan">📷 読む</button></div>' +
+    (scanned && !ok ? '<div class="err" style="margin-top:6px">この伝票の送り状ではありません。別の伝票の送り状を貼っていないか確認してください。</div>' : '') +
+    '<div class="sub" style="margin-top:6px">商品の検品と同じタイミングで、荷物に貼った送り状のバーコードを読み取ります。一致しないと「検品済みにする」を押せません。</div></div>';
+}
+function setTrkScan(s, text) {
+  s.trkScan = String(text); s.trkOk = Logic.normTracking(text) === Logic.normTracking(s.tracking); persistInsp();
+}
+function openTracking(no, cur, carrier) {
+  openModal('<h2>送り状番号を登録</h2><div class="sub">伝票 ' + esc(no) + '。送り状の発行は配送業者側で行い、番号だけをここに記録します（空にして保存すると消去）。</div>' +
+    '<label class="f">送り状番号</label><div class="row"><input type="text" id="trkNew" value="' + esc(cur || '') + '" autocomplete="off" placeholder="例: 1234-5678-9012"><button class="btn" data-act="trkNewScan">📷 読む</button></div>' +
+    '<label class="f">配送業者（任意）</label><input type="text" id="trkCar" value="' + esc(carrier || '') + '" list="carList" autocomplete="off"><datalist id="carList">' + CARRIERS.map((c) => '<option value="' + esc(c) + '">').join('') + '</datalist>' +
+    '<div class="err" id="trkErr"></div><div class="row" style="margin-top:12px"><button class="btn grow" data-act="closeModal">やめる</button><button class="btn pri grow" data-act="trkSave" data-no="' + esc(no) + '">保存</button></div>');
+}
+async function trkSave(no) {
+  const tracking = $('#trkNew').value, carrier = $('#trkCar').value;
+  try {
+    const r = await api('slipTracking', { no: no, tracking: tracking, carrier: carrier });
+    closeModal();
+    if (S.insp && S.insp.slipNo === no) { S.insp.tracking = r.slip.tracking; S.insp.carrier = r.slip.carrier; S.insp.trkScan = ''; S.insp.trkOk = false; if (r.slip.status === '未検品') { S.insp.rows.forEach((x) => { x.actual = 0; }); } persistInsp(); }
+    toast(r.slip.tracking ? '送り状番号を登録しました：' + r.slip.tracking : '送り状番号を消去しました', 'ok');
+    await refreshSlipsQuiet(); renderPanel();
+  } catch (e) { $('#trkErr').textContent = errText(e); }
+}
+function trackingImportHtml() {
+  const f = S.slipForm, r = S.slipTrkRes;
+  let h = '<hr style="border:0;border-top:1px solid var(--line);margin:12px 0"><div class="name" style="font-size:16px">送り状番号CSVを取り込む</div>' +
+    '<div class="sub">配送業者のソフトが出す追跡番号CSV：<b>伝票番号（受注コード）, 送り状番号[, 配送業者]</b>。宛先などの列があっても、番号以外は保存しません。</div>' +
+    '<textarea data-in="slTrk" style="min-height:80px" placeholder="受注コード,送り状番号,配送業者&#10;#1001,123456789012,ヤマト運輸">' + esc(f.trk) + '</textarea>' +
+    '<div class="row wrap" style="margin-top:6px"><button class="btn sm" data-act="slipTrkFile">ファイルを選ぶ</button><button class="btn pri grow" data-act="slipTrkImport" ' + (S.sending ? 'disabled' : '') + '>送り状番号を取り込む</button></div>';
+  if (r) {
+    h += '<div class="row wrap" style="margin-top:8px"><span class="tag ok">登録 ' + r.updated + '</span><span class="tag">変更なし ' + r.unchanged + '</span><span class="tag ' + (r.skipped ? 'bad' : '') + '">取り込めなかった ' + r.skipped + '</span></div>';
+    if (r.errors.length) h += '<table class="t" style="margin-top:6px">' + r.errors.slice(0, 15).map((e) => '<tr><td>' + esc(e.no) + '</td><td>' + esc(e.reason) + '</td></tr>').join('') + '</table>';
+  }
+  return h;
+}
+async function slipTrkImport() {
+  const text = S.slipForm.trk;
+  if (!text.trim()) { toast('CSVを貼り付けるか、ファイルを選んでください', 'warn'); return; }
+  S.sending = true; renderPanel();
+  try {
+    const r = await api('slipTrackingImport', { text: text });
+    S.slipTrkRes = r; toast('送り状番号を ' + r.updated + ' 件登録しました', r.updated ? 'ok' : 'warn');
+    S.sending = false; await refreshSlips();
+  } catch (e) { toast(errText(e), 'bad'); }
+  finally { S.sending = false; renderPanel(); }
+}
+
+function renderInspSaved() {
+  const s = S.insp, r = s.saved;
+  if (s.kind === 'slip') {
+    return '<div class="banner ok">検品済みになりました<small>伝票 ' + esc(s.name) + '</small></div><div class="card"><div class="sub">検品では在庫は動いていません。「出荷」タブで、この伝票を選んで出荷を確定すると、明細の分だけ在庫が減ります。</div>' +
+      '<button class="btn pri block" style="margin-top:8px" data-act="inspToShip">出荷タブへ</button><button class="btn block" style="margin-top:8px" data-act="inspDone">別の伝票を検品する</button></div>';
+  }
+  return '<div class="banner ' + (r.allOk ? 'ok' : 'warn') + '">' + (r.allOk ? '照合OK（保存しました）' : '差異ありで保存しました') +
+    '<small>' + esc(s.name) + '　一致' + r.matched + ' / 不足' + r.short + ' / 超過' + r.over + ' / 予定外' + r.unplanned + '</small></div>' +
+    '<div class="card"><div class="sub">リスト照合は照合専用で、在庫は動いていません。入荷の計上は「入荷」タブの入荷予定で行います。</div>' +
+    '<button class="btn block" style="margin-top:8px" data-act="inspDone">新しい照合を始める</button></div>';
+}
+function inspScan(item) {
+  const s = S.insp;
+  if (!s || s.saved) { toast('先に検品を始めてください（伝票を選ぶか、照合を開始）', 'warn'); return; }
+  const key = Logic.janKey(item.jan);
+  let r = s.rows.find((x) => x.key === key);
+  if (!r) { r = { jan: item.jan, key: key, name: item.name, location: item.location || '', planned: 0, actual: 0 }; s.rows.push(r); }
+  r.actual += 1; r.name = item.name; r.location = item.location || ''; s.last = key;
+  persistInsp(); renderPanel();
+  const el = document.querySelector('[data-row="' + CSS.escape(key) + '"]');
+  if (el && el.scrollIntoView) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+}
+function inspStart() {
+  const u = S.inspSetup;
+  const name = u.name.trim(); if (!name) { toast('名前を入れてください', 'warn'); return; }
+  const p = Logic.parsePlanText(u.plan, u.defQty);
+  u.errors = p.errors;
+  if (!p.rows.length) { toast(p.errors.length ? '予定リストに誤りがあります' : '予定リストが空です', 'warn'); renderPanel(); return; }
+  if (p.errors.length) { toast('誤りのある行は除いて開始します（' + p.errors.length + '行）', 'warn'); }
+  S.insp = {
+    kind: 'list', name: name, started: Date.now(), last: null, saved: null,
+    rows: p.rows.map((r) => { const it = S.master.get(r.key); return { jan: r.jan, key: r.key, name: it ? it.name : (r.name || ''), location: it ? (it.location || '') : '', planned: r.planned, actual: 0 }; })
+  };
+  persistInsp(); renderPanel();
+}
+async function inspDraft() {
+  const s = S.insp; if (!s || s.kind !== 'slip' || S.sending) return;
+  S.sending = true; renderPanel();
+  try {
+    const r = await api('slipInspect', { no: s.slipNo, items: s.rows.filter((x) => x.planned > 0).map((x) => ({ jan: x.jan, count: x.actual })) });
+    toast('途中保存しました（' + r.slip.status + '）。別の端末からも続きを検品できます', 'ok');
+    S.sending = false; refreshSlipsQuiet();
+  } catch (e) { toast(errText(e), 'bad'); }
+  finally { S.sending = false; renderPanel(); }
+}
+async function inspSave() {
+  const s = S.insp; if (!s || S.sending) return;
+  const items = s.rows.filter((r) => r.planned > 0 || r.actual > 0).map((r) => ({ jan: r.jan, planned: r.planned, actual: r.actual, name: r.name }));
+  if (!items.length) { toast('保存する行がありません', 'warn'); return; }
+  const sum = Logic.inspSummary(s.rows), isSlip = s.kind === 'slip';
+  const ok = await confirmDialog({ title: isSlip ? '検品済みにする' : '照合を確定して保存', ok: isSlip ? '検品済みにする' : '保存する',
+    body: '<div>' + esc(s.name) + '</div><div class="sub">一致 ' + sum.match + ' / 不足 ' + sum.short + ' / 超過 ' + sum.over + ' / 予定外 ' + sum.extra + '</div>' + (sum.allOk ? '<div class="tag ok">検品OK</div>' : '<div class="tag warn">差異あり</div>') +
+      (isSlip ? '<div class="sub" style="margin-top:6px">在庫は動きません。出荷は「出荷」タブで確定します。</div>' : '') });
+  if (!ok) return;
+  S.sending = true; renderPanel();
+  try {
+    if (isSlip) {
+      await api('slipInspect', { no: s.slipNo, items: items.map((x) => ({ jan: x.jan, count: x.actual })), tracking: s.trkScan });
+      s.saved = { slip: true };
+      toast('検品済みにしました', 'ok');
+      S.sending = false; refreshSlipsQuiet();
+    } else {
+      const r = await api('inspectionSave', { name: s.name, items: items });
+      s.saved = { matched: r.matched, short: r.short, over: r.over, unplanned: r.unplanned, allOk: r.allOk };
+      toast('検品履歴に保存しました', 'ok');
+    }
+    persistInsp(); beep('ok');
+  } catch (e) {
+    beep('ng');
+    let m = errText(e);
+    if (e instanceof ApiError && e.code === 'not_matched') m = '明細と実績が一致しません（' + ((e.data.diffs || []).length) + '品）。実物を直してやり直してください';
+    toast(m, 'bad');
+  } finally { S.sending = false; renderPanel(); }
+}
+
+/* ---------- 棚卸（①開始 → ②実在庫入力 → ③確定） ---------- */
+function persistStk() { if (S.stk) store.set('wms.stk', S.stk); else store.del('wms.stk'); }
+function stkSteps(n) {
+  const names = ['① 開始', '② 実在庫入力', '③ 確定'];
+  return '<div class="steps">' + names.map((t, i) => '<span class="' + (i + 1 === n ? 'cur' : (i + 1 < n ? 'done' : '')) + '">' + t + '</span>').join('') + '</div>';
+}
+function renderStk() {
+  const s = S.stk;
+  if (!s) {
+    const u = S.stkSetup; if (!u.name) u.name = '棚卸 ' + stamp();
+    const locs = locations();
+    return stkSteps(1) + '<div class="card"><div class="name">棚卸を始める</div><div class="sub">実物をスキャンして数え、帳簿在庫との差異を確認して、確定で在庫を実績に合わせます。<b>棚卸が終わるまで、入荷・出荷・出庫・棚移動は行わないでください。</b></div>' +
+      '<label class="f">棚卸名</label><input type="text" data-in="stkName" value="' + esc(u.name) + '" autocomplete="off">' +
+      '<label class="f">範囲（何も選ばなければ「すべて」）</label><div class="chips">' +
+      (locs.length ? locs.map((l) => '<label><input type="checkbox" data-in="stkScope" value="' + esc(l) + '" ' + (u.scope.indexOf(l) >= 0 ? 'checked' : '') + '>' + esc(l) + '</label>').join('') : '<span class="sub">ロケーションがまだありません（すべて）</span>') + '</div>' +
+      '<label class="f">数えていない商品の扱い（範囲内）</label>' +
+      '<div class="chips"><label><input type="radio" name="unc" data-in="stkUnc" value="keep" ' + (u.uncounted === 'keep' ? 'checked' : '') + '>そのまま（既定）</label>' +
+      '<label><input type="radio" name="unc" data-in="stkUnc" value="zero" ' + (u.uncounted === 'zero' ? 'checked' : '') + '>0とみなす</label></div>' +
+      '<div class="sub" style="margin-top:6px">「0とみなす」は、ロケーションを絞った棚卸で使うのがおすすめです。範囲外の商品は触りません。</div>' +
+      '<button class="btn pri block" style="margin-top:10px" data-act="stkStart">棚卸を開始</button></div>' + noConfigHint();
+  }
+  if (s.result) return stkSteps(3) + renderStkResult();
+  const v = Logic.stkView(s, allItems());
+  let h = stkSteps(2) + '<div class="card"><div class="row"><div class="grow"><div class="name">' + esc(s.name) + '</div><div class="sub">範囲：' + (s.scope.length ? esc(s.scope.join('、')) : 'すべて') + ' ／ 未カウント：' + (s.uncounted === 'zero' ? '0とみなす' : 'そのまま') + '</div></div></div>' +
+    '<div class="kv"><div>カウント済<b>' + v.counted.length + '品</b></div><div>未カウント（範囲内）<b>' + v.uncounted.length + '品</b></div></div>' +
+    '<button class="btn sm" data-act="stkToggleUn">' + (S.stkShowUncounted ? '未カウントを隠す' : '未カウントを見る') + '</button></div>';
+  if (S.stkShowUncounted) {
+    h += '<div class="card"><div class="sub">未カウント（範囲内）</div>' + (v.uncounted.length ? '<table class="t">' + v.uncounted.map((it) => '<tr><td>' + esc(it.name) + '<div class="sub">' + esc(it.jan) + '</div></td><td><span class="tag loc">' + esc(it.location || '未設定') + '</span></td><td class="n">帳簿 ' + it.stock + '</td></tr>').join('') + '</table>' : '<div class="tag ok">なし</div>') + '</div>';
+  }
+  v.counted.forEach((r) => {
+    const cls = r.diff === 0 ? 'match' : (r.diff < 0 ? 'short' : 'over');
+    h += '<div class="item ' + cls + (s.last === r.key ? ' hot' : '') + '" data-row="' + esc(r.key) + '"><div class="row"><div class="grow"><div style="font-weight:700">' + esc(r.name) + '</div>' +
+      '<div class="sub">' + esc(r.jan) + ' <span class="tag loc">' + esc(r.location || '未設定') + '</span>' + (r.outOfScope ? ' <span class="tag warn">範囲外ロケ</span>' : '') + '</div></div>' +
+      '<div class="nums" style="text-align:right">帳簿 ' + r.book + '<br>差異 <span class="' + (r.diff === 0 ? 'diff-zero' : r.diff < 0 ? 'diff-neg' : 'diff-pos') + '"><b>' + (r.diff > 0 ? '+' : '') + r.diff + '</b></span></div></div>' +
+      '<div class="row" style="margin-top:6px;justify-content:flex-end"><div class="mini"><button data-act="stkAdj" data-key="' + esc(r.key) + '" data-d="-1">−</button>' +
+      '<input type="number" id="sa-' + esc(r.key) + '" data-in="stkActual" data-key="' + esc(r.key) + '" inputmode="numeric" min="0" value="' + r.actual + '" style="width:72px;text-align:center" aria-label="実績数">' +
+      '<button data-act="stkAdj" data-key="' + esc(r.key) + '" data-d="1">＋</button><button data-act="stkDel" data-key="' + esc(r.key) + '" aria-label="取り消し">✕</button></div></div></div>';
+  });
+  h += '<div class="row" style="margin-top:10px"><button class="btn" data-act="stkAbort">中止（入力を破棄）</button><button class="btn pri grow" data-act="stkConfirm" ' + (S.sending || !v.counted.length ? 'disabled' : '') + '>③ 差異を確認して確定</button></div>';
+  return h;
+}
+function renderStkResult() {
+  const r = S.stk.result;
+  return '<div class="banner ok">棚卸を確定しました<small>' + esc(S.stk.name) + '</small></div><div class="card"><div class="kv"><div>差異あり<b>' + r.adjust + '品</b></div><div>0とみなした<b>' + r.zeroed + '品</b></div></div>' +
+    '<div class="sub">在庫は実績に合わせ、差異分は入出荷履歴（棚卸調整）と棚卸履歴に残しました。他の在庫操作を再開できます。</div><button class="btn pri block" style="margin-top:8px" data-act="stkDone">終了</button></div>';
+}
+function stkScan(item) {
+  const s = S.stk;
+  if (!s || s.result) { toast('先に「棚卸を開始」してください', 'warn'); return; }
+  const key = Logic.janKey(item.jan);
+  if (!s.counts[key]) s.counts[key] = { jan: item.jan, actual: 0 };
+  s.counts[key].actual += 1; s.last = key;
+  s.order = [key].concat((s.order || []).filter((k) => k !== key));
+  persistStk(); renderPanel();
+}
+function stkPayload() {
+  const s = S.stk;
+  return { name: s.name, uncounted: s.uncounted, scope: { locations: s.scope },
+    counts: Object.keys(s.counts).map((k) => ({ jan: s.counts[k].jan, actual: s.counts[k].actual })) };
+}
+async function stkConfirm() {
+  const s = S.stk; if (!s || S.sending) return;
+  S.sending = true; renderPanel();
+  let p;
+  try { p = await api('stocktakePreview', stkPayload()); }
+  catch (e) { toast(errText(e), 'bad'); S.sending = false; renderPanel(); return; }
+  S.sending = false; renderPanel();
+  const diffs = p.rows.filter((r) => r.diff !== 0);
+  const warnAll = s.uncounted === 'zero' && s.scope.length === 0 && p.zeroed > 0;
+  const body = '<div class="kv"><div>差異あり<b>' + p.adjust + '品</b></div><div>0とみなす<b>' + p.zeroed + '品</b></div></div>' +
+    (warnAll ? '<div class="err">範囲が「すべて」で、数えていない ' + p.zeroed + ' 品の在庫を0にします。よろしいですか？</div>' : '') +
+    (diffs.length ? '<table class="t"><tr><th>商品</th><th class="n">帳簿</th><th class="n">実績</th><th class="n">差</th></tr>' +
+      diffs.slice(0, 40).map((r) => '<tr><td>' + esc(r.name) + (r.zeroed ? ' <span class="tag warn">未カウント</span>' : '') + (r.outOfScope ? ' <span class="tag warn">範囲外ロケ</span>' : '') + '<div class="sub">' + esc(r.location || '') + '</div></td><td class="n">' + r.book + '</td><td class="n">' + r.actual + '</td><td class="n ' + (r.diff < 0 ? 'diff-neg' : 'diff-pos') + '">' + (r.diff > 0 ? '+' : '') + r.diff + '</td></tr>').join('') + '</table>' + (diffs.length > 40 ? '<div class="sub">ほか' + (diffs.length - 40) + '品</div>' : '') : '<div class="tag ok">差異はありません</div>');
+  const ok = await confirmDialog({ title: '③ 棚卸を確定', ok: '確定する', danger: warnAll, body: body });
+  if (!ok) return;
+  S.sending = true; renderPanel();
+  try {
+    const r = await api('stocktakeSave', stkPayload());
+    (r.items || []).forEach(putItem);
+    s.result = { adjust: r.adjust, zeroed: r.zeroed }; persistStk(); beep('ok'); toast('棚卸を確定しました', 'ok');
+  } catch (e) { toast(errText(e), 'bad'); }
+  finally { S.sending = false; renderPanel(); }
+}
+
+/* ---------- 管理（一覧・検索・CSV） ---------- */
+const CSV_KINDS = [['master', '商品マスタ'], ['stock', '在庫一覧'], ['io', '入出荷履歴'], ['plans', '入荷予定'], ['slips', '出荷伝票']];
+const SLIP_STATUSES = ['未検品', '検品中', '検品済', '出荷済', 'キャンセル'];
+function renderAdmin() {
+  const a = S.admin;
+  let h = seg([['plans', '入荷予定'], ['slips', '出荷伝票'], ['stock', '在庫'], ['hist', '履歴']], a.tab, 'adminTab');
+  h += '<div class="card"><div class="sub">CSVダウンロード（UTF-8・Excel対応）</div><div class="row wrap" style="margin-top:6px">' +
+    CSV_KINDS.map((k) => '<button class="btn sm" data-act="csv" data-kind="' + k[0] + '">' + esc(k[1]) + '</button>').join('') + '</div></div>';
+  if (!S.cfg.gas) return h + noConfigHint();
+  if (a.tab === 'plans') return h + renderAdminPlans();
+  if (a.tab === 'slips') return h + renderAdminSlips();
+  if (a.tab === 'hist') return h + renderAdminHist();
+  return h + renderStock();
+}
+function adminDetail(kind, id, lines) {
+  if (!lines) return '<div class="sub">読み込み中…</div>';
+  return kind === 'plan'
+    ? '<table class="t"><tr><th>商品</th><th class="n">予定</th><th class="n">検品</th><th class="n">入荷済</th><th>状態</th></tr>' +
+      lines.map((l) => '<tr><td>' + esc(l.name) + '<div class="sub">' + esc(l.jan) + ' ' + esc(l.location || '') + (l.note ? ' ' + esc(l.note) : '') + '</div></td><td class="n">' + l.planned + '</td><td class="n">' + l.inspected + '</td><td class="n">' + l.received + '</td><td>' + esc(l.state) + '</td></tr>').join('') + '</table>'
+    : '<table class="t"><tr><th>商品</th><th class="n">数量</th><th class="n">検品済</th><th>元コード</th></tr>' +
+      lines.map((l) => '<tr><td>' + esc(l.name) + '<div class="sub">' + esc(l.jan) + ' ' + esc(l.location || '') + '</div></td><td class="n">' + l.qty + '</td><td class="n">' + l.done + '</td><td>' + esc(l.code || '') + '</td></tr>').join('') + '</table>';
+}
+function renderAdminPlans() {
+  const a = S.admin;
+  let h = '<div class="row" style="margin:6px 0"><select data-in="admPlanSt">' + planFilterOptions(a.planSt) + '</select><button class="btn sm" data-act="adminReload">更新</button></div>';
+  if (S.plans === null) return h + hint('読み込み中…');
+  const list = S.plans.filter((p) => planMatches(p, a.planSt));
+  h += '<div class="sub">' + list.length + '件</div>';
+  list.forEach((p) => {
+    const open = a.open['p:' + p.id];
+    h += '<div class="item"><div class="row" data-act="adminToggle" data-k="p:' + esc(p.id) + '" data-kind="plan" data-name="' + esc(p.name) + '" style="cursor:pointer"><div class="grow"><b>' + esc(p.name) + '</b> <span class="tag ' + (STATUS_TAG[p.status] || '') + '">' + esc(p.status) + '</span>' +
+      '<div class="sub">' + esc(p.id) + '　作成 ' + esc(String(p.created).slice(0, 16)) + (p.finished ? '　完了 ' + esc(String(p.finished).slice(0, 16)) : '') + (p.supplier ? '　' + esc(p.supplier) : '') + '</div></div>' +
+      '<div class="nums" style="text-align:right">予定 ' + p.planned + ' / 検品 ' + p.inspected + '<br>入荷済 ' + p.received + ' / 残 ' + p.remaining + '</div></div>' +
+      (open ? '<div style="margin-top:6px">' + adminDetail('plan', p.id, a.detail['p:' + p.id]) + '</div>' : '') + '</div>';
+  });
+  return h;
+}
+function renderAdminSlips() {
+  const a = S.admin;
+  let h = '<div class="row" style="margin:6px 0"><input type="search" data-in="admSlipQ" id="admSlipQ" placeholder="伝票番号・送り状番号で探す" value="' + esc(a.slipQ) + '" autocomplete="off"><select data-in="admSlipSt"><option value="all">すべて</option>' + SLIP_STATUSES.map((x) => '<option ' + (a.slipSt === x ? 'selected' : '') + '>' + x + '</option>').join('') + '</select><button class="btn sm" data-act="adminReload">更新</button></div>';
+  if (S.slips === null) return h + hint('読み込み中…');
+  const q = Logic.normTracking(a.slipQ), qs = a.slipQ.trim().toUpperCase();
+  const list = S.slips.filter((s) => (a.slipSt === 'all' || s.status === a.slipSt) && (!qs || s.no.toUpperCase().indexOf(qs) >= 0 || (q && Logic.normTracking(s.tracking || '').indexOf(q) >= 0)));
+  h += '<div class="sub">' + list.length + '件</div>';
+  list.forEach((s) => {
+    const open = a.open['s:' + s.id];
+    h += '<div class="item"><div class="row" data-act="adminToggle" data-k="s:' + esc(s.id) + '" data-kind="slip" data-name="' + esc(s.no) + '" style="cursor:pointer"><div class="grow"><b>' + esc(s.no) + '</b> <span class="tag ' + (STATUS_TAG[s.status] || '') + '">' + esc(s.status) + '</span>' +
+      '<div class="sub">' + esc(s.id) + '　' + esc(s.source || '') + (s.tracking ? '　📦 ' + esc(s.tracking) : '') + '　取込 ' + esc(String(s.importedAt).slice(0, 16)) + (s.shippedAt ? '　出荷 ' + esc(String(s.shippedAt).slice(0, 16)) : '') + '</div></div>' +
+      '<div class="nums" style="text-align:right">' + s.lines + '品 ' + s.qty + '点<br>検品 ' + s.inspected + '</div></div>' +
+      (open ? '<div style="margin-top:6px">' + adminDetail('slip', s.id, a.detail['s:' + s.id]) + '</div>' : '') + '</div>';
+  });
+  return h;
+}
+function renderAdminHist() {
+  const a = S.admin;
+  let h = '<div class="card"><div class="row"><input type="search" id="histQ" data-in="histQ" placeholder="JAN・商品名・メモで検索" value="' + esc(a.histQ) + '" autocomplete="off">' +
+    '<select data-in="histKubun"><option value="">区分：すべて</option>' + ['入荷', '出荷', '出庫', '棚卸調整', '移動'].map((k) => '<option ' + (a.histKubun === k ? 'selected' : '') + '>' + k + '</option>').join('') + '</select></div>' +
+    '<button class="btn sm pri" style="margin-top:8px" data-act="histSearch">検索</button></div>';
+  if (!a.hist) return h + hint('「検索」を押すと、入出荷履歴を新しい順に表示します（最大200件）。');
+  h += '<div class="sub">' + a.hist.count + '件' + (a.hist.truncated ? '（新しい200件を表示。条件で絞り込んでください）' : '') + '</div>' +
+    '<table class="t"><tr><th>日時</th><th>商品</th><th>区分</th><th class="n">数量</th><th class="n">在庫</th><th>メモ</th></tr>' +
+    a.hist.rows.map((r) => '<tr><td>' + esc(String(r.ts).slice(5)) + '</td><td>' + esc(r.name) + '<div class="sub">' + esc(r.jan) + '</div></td><td>' + esc(r.kubun) + '</td><td class="n">' + r.qty + '</td><td class="n">' + r.after + '</td><td>' + esc(r.memo) + '</td></tr>').join('') + '</table>';
+  return h;
+}
+async function adminToggle(d) {
+  const a = S.admin;
+  if (a.open[d.k]) { delete a.open[d.k]; renderPanel(); return; }
+  a.open[d.k] = true; renderPanel();
+  if (!a.detail[d.k]) {
+    try { const r = await api(d.kind === 'plan' ? 'planGet' : 'slipGet', d.kind === 'plan' ? { name: d.name } : { no: d.name }, 'GET'); a.detail[d.k] = r.lines; }
+    catch (e) { toast(errText(e), 'bad'); delete a.open[d.k]; }
+    renderPanel();
+  }
+}
+async function histSearch() {
+  const a = S.admin;
+  try { a.hist = await api('historyList', { q: a.histQ, kubun: a.histKubun, limit: 200 }, 'GET'); } catch (e) { toast(errText(e), 'bad'); }
+  renderPanel();
+}
+async function downloadCsv(kind) {
+  try {
+    const r = await api('exportData', { kind: kind }, 'GET');
+    const csv = Logic.toCsv(r.header, r.rows);
+    const d = new Date(), ymd = d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate());
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = '簡易WMS_' + r.title + '_' + ymd + '.csv';
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+    toast(r.title + 'のCSV（' + r.rows.length + '行）を作りました', 'ok');
+  } catch (e) { toast(errText(e), 'bad'); }
+}
+function adminEnter() {
+  if (!S.cfg.gas) return;
+  S.admin.detail = {}; S.admin.open = {};
+  refreshPlans(); refreshSlipsQuiet().then(renderPanel); loadMaster();
+}
+
+/* ---------- 在庫確認 ---------- */
+function renderStock() {
+  const v = S.stockView, locs = locations();
+  const list = Logic.filterStock(allItems(), v);
+  const total = list.reduce((a, i) => a + i.stock, 0);
+  let h = '<div class="card"><div class="row"><input type="search" id="stQ" data-in="stQ" placeholder="商品名・JAN・ロケ・SKUで検索" value="' + esc(v.q) + '" autocomplete="off"><button class="btn sm" data-act="stockReload">更新</button></div>' +
+    '<div class="row" style="margin-top:8px"><select data-in="stLoc"><option value="">ロケ：すべて</option>' + locs.map((l) => '<option ' + (Logic.normLocation(v.loc) === l ? 'selected' : '') + '>' + esc(l) + '</option>').join('') + '</select>' +
+    '<select data-in="stSort">' + [['loc', 'ロケ順'], ['name', '商品名順'], ['stockAsc', '在庫少ない順'], ['stockDesc', '在庫多い順']].map((o) => '<option value="' + o[0] + '" ' + (v.sort === o[0] ? 'selected' : '') + '>' + o[1] + '</option>').join('') + '</select></div>' +
+    '<div class="sub" style="margin-top:6px">' + list.length + '品 ／ 合計 ' + total + '個' + (v.q || v.loc ? '（絞り込み中）' : '') + '</div></div>';
+  if (!S.master.size) h += S.masterState === 'loading' ? '<div class="hint">読み込み中…</div>' : noConfigHint() || '<div class="hint">商品マスタが空です。設定（⚙）から取り込めます。</div>';
+  list.slice(0, 300).forEach((it) => {
+    h += '<div class="item" data-act="stockEdit" data-key="' + esc(Logic.janKey(it.jan)) + '"><div class="row"><div class="grow"><div style="font-weight:700">' + esc(it.name) + '</div>' +
+      '<div class="sub">' + esc(it.jan) + (it.price != null ? ' ・ ' + esc(Logic.yen(it.price)) : '') + ' <span class="tag loc">' + esc(it.location || '未設定') + '</span></div>' +
+      (it.sku ? '<div class="sub">SKU: ' + esc(it.sku) + '</div>' : '') + '</div>' +
+      '<div class="nums" style="text-align:right"><b>' + it.stock + '</b><div class="sub">在庫</div></div></div></div>';
+  });
+  if (list.length > 300) h += '<div class="sub">先頭300品を表示しています。検索で絞り込んでください。</div>';
+  return h;
+}
+
+function noConfigHint() {
+  if (S.cfg.gas && S.cfg.token) return '';
+  return '<div class="hint" style="margin-top:10px">最初に設定（右上の ⚙）でGASのURLと合言葉を入れてください。</div>';
+}
+
+/* ---------- 描画 ---------- */
+function renderStatus() {
+  const el = $('#status'); el.classList.remove('bad');
+  if (!S.cfg.gas) el.textContent = '未設定';
+  else if (S.masterState === 'loading') el.textContent = '読込中…';
+  else if (S.masterState === 'ok') el.textContent = 'マスタ ' + S.master.size + '品';
+  else if (S.masterState === 'error') { el.textContent = '接続エラー'; el.classList.add('bad'); }
+  else el.textContent = '接続前';
+}
+function renderTabs() {
+  document.querySelectorAll('#tabs button').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.mode === S.mode)));
+}
+const MODES = ['recv', 'insp', 'ship', 'issue', 'move', 'stk', 'stock', 'admin'];
+function renderPanel() {
+  const active = document.activeElement;
+  const keep = active && active.id && $('#panel').contains(active) ? { id: active.id, s: active.selectionStart, e: active.selectionEnd } : null;
+  renderTabs();
+  const m = S.mode;
+  const body = m === 'recv' ? renderRecv() : m === 'insp' ? renderInsp() : m === 'ship' ? renderShip() : m === 'issue' ? renderIssue() : m === 'move' ? renderMove() : m === 'stk' ? renderStk() : m === 'admin' ? renderAdmin() : renderStock();
+  document.body.classList.toggle('wide', m === 'admin');
+  $('#panel').innerHTML = body + '<datalist id="locList2">' + locations().map((l) => '<option value="' + esc(l) + '">').join('') + '</datalist>';
+  if (keep) {
+    const el = document.getElementById(keep.id);
+    if (el) { el.focus(); try { el.setSelectionRange(keep.s, keep.e); } catch (e) { } }
+  }
+}
+function onEnterMode() {
+  if (!S.cfg.gas) return;
+  if (S.mode === 'stock') loadMaster();
+  else if (S.mode === 'admin') adminEnter();
+  else if (S.mode === 'recv' && S.rcvTab === 'plan') refreshPlans();
+  else if (S.mode === 'ship' || S.mode === 'insp') refreshSlips();
+}
+function setMode(m) {
+  S.mode = m; store.set('wms.mode', m); renderPanel();
+  const t = document.querySelector('#tabs button[data-mode="' + m + '"]');
+  if (t && t.scrollIntoView) { try { t.scrollIntoView({ inline: 'center', block: 'nearest' }); } catch (e) { } }
+  onEnterMode();
+}
+
+/* ---------- 設定 ---------- */
+function openSettings() {
+  const c = S.cfg;
+  openModal('<h2>設定</h2>' +
+    '<label class="f">GAS WebアプリのURL（…/exec）</label><input type="url" id="cfgGas" data-in="cfgGas" value="' + esc(c.gas) + '" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off">' +
+    '<div class="err" id="cfgGasErr"></div>' +
+    '<label class="f">合言葉（GASのスクリプトプロパティ APP_TOKEN と同じもの。16文字以上）</label><input type="password" id="cfgToken" data-in="cfgToken" value="' + esc(c.token) + '" autocomplete="off">' +
+    '<div class="row wrap" style="margin-top:8px"><button class="btn sm" data-act="testGet">接続テスト(GET)</button><button class="btn sm" data-act="testPost">接続テスト(POST)</button><button class="btn sm" data-act="reloadMaster">マスタ再読込</button></div>' +
+    '<div class="pre" id="testOut" style="margin-top:8px;display:none"></div>' +
+    '<div style="margin-top:10px">' +
+    sw('sound', '音', c.sound) + sw('vibrate', 'バイブ（Androidのみ。iPhoneは非対応）', c.vibrate) + sw('speech', '読み上げ（商品名と金額）', c.speech) + '</div>' +
+    '<h2 style="margin-top:16px">商品マスタの取り込み</h2>' +
+    '<div class="sub">1行1商品：<b>JAN,商品名[,価格[,現在庫[,ロケーション[,SKU]]]]</b>（カンマ／タブ区切り。見出し行は自動で除外。SKUが複数なら「 | 」で区切る）。既存の商品は名前・価格・ロケーション・SKUを更新し、在庫は変えません。</div>' +
+    '<textarea id="impText" data-in="impText" placeholder="4901777300446,伊右衛門 600ml,120,10,A-01,SKU-A"></textarea>' +
+    '<div class="row wrap" style="margin-top:6px"><button class="btn sm" data-act="impFile">ファイルを選ぶ</button><input type="file" id="impFile" accept=".csv,.tsv,.txt,text/*" hidden><button class="btn pri grow" data-act="impRun">取り込む</button></div>' +
+    '<div id="impOut" style="margin-top:8px"></div>' +
+    '<h2 style="margin-top:16px">カメラ診断</h2><div class="row"><button class="btn sm" data-act="diag">診断を実行</button></div><div class="pre" id="diagOut" style="margin-top:8px;display:none"></div>' +
+    '<div class="sub" style="margin-top:14px">簡易WMS v' + VERSION + '</div>' +
+    '<button class="btn block" style="margin-top:10px" data-act="closeModal">閉じる</button>');
+  updateGasErr();
+}
+function sw(key, label, on) {
+  return '<div class="sw"><span>' + esc(label) + '</span><input type="checkbox" data-in="cfgSw" data-key="' + key + '" ' + (on ? 'checked' : '') + '></div>';
+}
+function saveCfg() { store.set('wms.cfg', S.cfg); renderStatus(); }
+function updateGasErr() {
+  const el = $('#cfgGasErr'); if (!el) return;
+  const p = S.cfg.gas ? Logic.gasUrlProblem(S.cfg.gas) : ''; el.textContent = p;
+}
+function showOut(id, text) { const el = $(id); if (!el) return; el.style.display = 'block'; el.textContent = text; }
+async function runTest(method) {
+  showOut('#testOut', '確認中…');
+  const t0 = performance.now();
+  try {
+    const r = await api('ping', {}, method);
+    let msg = method + ' OK（' + Math.round(performance.now() - t0) + 'ms） ' + r.app + ' v' + r.version;
+    try { await api('masterList', {}, method); msg += '\n合言葉: OK'; } catch (e2) { msg += '\n合言葉: NG（' + errText(e2) + '）'; }
+    showOut('#testOut', msg);
+  } catch (e) { showOut('#testOut', method + ' NG：' + errText(e)); }
+}
+async function runDiag() {
+  const L = [];
+  const standalone = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+  L.push('表示モード: ' + (standalone ? 'ホーム画面アプリ（standalone）' : 'ブラウザ表示'));
+  L.push('HTTPS等（secure context）: ' + (window.isSecureContext ? 'はい' : 'いいえ ← カメラは使えません'));
+  L.push('URL: ' + location.protocol + '//' + location.host);
+  L.push('mediaDevices: ' + (navigator.mediaDevices ? 'あり' : 'なし'));
+  L.push('getUserMedia: ' + (navigator.mediaDevices && navigator.mediaDevices.getUserMedia ? 'あり' : 'なし'));
+  L.push('ZXing-js: ' + (window.ZXing ? '読み込み済み' : '未読込（CDNに届いていません）'));
+  L.push('BarcodeDetector: ' + ('BarcodeDetector' in window ? 'あり' : 'なし（使いません）'));
+  L.push('バイブ: ' + (navigator.vibrate ? 'あり' : 'なし'));
+  L.push('読み上げ: ' + (window.speechSynthesis ? 'あり（日本語の声 ' + speechSynthesis.getVoices().filter((v) => /^ja/i.test(v.lang)).length + ' 個）' : 'なし'));
+  try {
+    if (navigator.permissions && navigator.permissions.query) { const p = await navigator.permissions.query({ name: 'camera' }); L.push('カメラ許可: ' + p.state); }
+    else L.push('カメラ許可: 取得できません（この環境）');
+  } catch (e) { L.push('カメラ許可: 取得できません'); }
+  try {
+    if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+      const d = (await navigator.mediaDevices.enumerateDevices()).filter((x) => x.kind === 'videoinput'); L.push('カメラ台数: ' + d.length);
+    }
+  } catch (e) { }
+  L.push('カメラ状態: ' + S.cam.state + (S.cam.lastError ? '\n直近のエラー: ' + S.cam.lastError : ''));
+  L.push('端末: ' + navigator.userAgent);
+  showOut('#diagOut', L.join('\n'));
+}
+async function runImport() {
+  const text = $('#impText').value;
+  if (!text.trim()) { toast('取り込む内容を貼り付けるか、ファイルを選んでください', 'warn'); return; }
+  $('#impOut').innerHTML = '<div class="sub">取り込み中…</div>';
+  try {
+    const r = await api('masterImport', { text: text });
+    $('#impOut').innerHTML = '<div class="card" style="margin:0"><div class="row wrap"><span class="tag ok">追加 ' + r.added + '</span><span class="tag">更新 ' + r.updated + '</span><span class="tag">変更なし ' + r.unchanged + '</span><span class="tag ' + (r.skipped ? 'bad' : '') + '">スキップ ' + r.skipped + '</span></div>' +
+      (r.errors.length ? '<table class="t" style="margin-top:6px">' + r.errors.slice(0, 20).map((e) => '<tr><td class="n">' + e.line + '行</td><td>' + esc(e.jan) + '</td><td>' + esc(e.reason) + '</td></tr>').join('') + '</table>' + (r.errors.length > 20 ? '<div class="sub">ほか' + (r.errors.length - 20) + '件</div>' : '') : '') + '</div>';
+    await loadMaster();
+  } catch (e) { $('#impOut').innerHTML = '<div class="err">' + esc(errText(e)) + '</div>'; }
+}
+
+/* ---------- 写真から読む ---------- */
+async function readPhoto(file) {
+  if (!file) return;
+  if (!Scanner.ready()) { toast('ZXing-js を読み込めていません', 'bad'); return; }
+  try {
+    const url = URL.createObjectURL(file);
+    const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error('画像を開けません')); i.src = url; });
+    const cv = document.createElement('canvas'), ctx = cv.getContext('2d', { willReadFrequently: true });
+    let text = null;
+    for (const maxW of [1600, 1000, 640]) {
+      const sc = Math.min(1, maxW / Math.max(img.naturalWidth, img.naturalHeight));
+      const w = Math.max(1, Math.round(img.naturalWidth * sc)), h = Math.max(1, Math.round(img.naturalHeight * sc));
+      cv.width = w; cv.height = h; ctx.drawImage(img, 0, 0, w, h);
+      const gray = Logic.rgbaToGray(ctx.getImageData(0, 0, w, h).data, w, h);
+      const dec = S.codeScan ? Scanner.decodeCode : Scanner.decode;
+      text = dec(gray, w, h) || dec(Logic.rotate90Gray(gray, w, h), h, w);
+      if (text) break;
+    }
+    URL.revokeObjectURL(url);
+    if (!text) { beep('ng'); toast('バーコードを読み取れませんでした。バーコードを大きく、水平に撮ってください', 'warn'); return; }
+    onScan(text);
+  } catch (e) { toast(errText(e), 'bad'); }
+}
+
+/* ---------- イベント ---------- */
+const qtyDelta = (cur, d) => Math.max(1, (Number.isInteger(cur) ? cur : 0) + Number(d));
+const Actions = {
+  tab(d) { setMode(d.mode); },
+  settings() { openSettings(); },
+  closeModal() { closeModal(); },
+  camToggle() { cancelCodeScan(); camToggle(); },
+  codeCancel() { cancelCodeScan(); },
+  photo() { $('#photoIn').click(); },
+  manualJan() { const el = $('#manualJan'); const v = el.value; if (!v.trim()) return; unlockMedia(); el.value = ''; onScan(v); },
+  dlgYes() { const r = S.dlgResolve; S.dlgResolve = null; closeModal(); if (r) r(true); },
+  dlgNo() { const r = S.dlgResolve; S.dlgResolve = null; closeModal(); if (r) r(false); },
+  regCancel() { S.reg = null; closeModal(); },
+  regSubmit() { regSubmit(); },
+  unrLink(d) { unrLink(Number(d.i)); },
+  unrScan(d) { unrScan(Number(d.i)); },
+
+  /* 入荷 */
+  rcvTab(d) { S.rcvTab = d.t; store.set('wms.rcvTab', d.t); renderPanel(); if (d.t === 'plan') refreshPlans(); },
+  planNewToggle() { S.rcvShowNew = !S.rcvShowNew; S.unres = null; renderPanel(); },
+  planReload() { S.plans = null; refreshPlans(); },
+  planFromMaster() { S.rcvNew.text = Logic.planFromMaster(allItems(), S.rcvNew.def); renderPanel(); },
+  planCreate() { planCreate(); },
+  rcvOpen(d) { rcvOpen(d.name); },
+  rcvAdj(d) { const l = S.rcv.lines.find((x) => x.key === d.key); if (!l) return; l.now = Math.max(0, l.now + Number(d.d)); S.rcv.last = d.key; persistRcv(); renderPanel(); },
+  rcvLocScan(d) { startCodeScan('location', (t) => { const l = S.rcv && S.rcv.lines.find((x) => x.key === d.key); if (!l) return; l.loc = Logic.normLocation(t); persistRcv(); renderPanel(); toast('ロケ：' + l.loc, 'ok'); }); },
+  async rcvAbort() { if (await confirmDialog({ title: '入荷の入力を破棄', ok: '破棄する', danger: true, body: '今回入力した数を破棄します（在庫・予定は変わりません）。' })) { S.rcv = null; persistRcv(); renderPanel(); } },
+  rcvClose() { rcvClose(); },
+  rcvSave() { rcvSave(); },
+  planCancel(d) { planCancel(d.name); },
+  adminTab(d) { S.admin.tab = d.t; renderPanel(); if (d.t === 'stock') loadMaster(); },
+  adminReload() { S.plans = null; S.slips = null; S.admin.detail = {}; adminEnter(); },
+  adminToggle(d) { adminToggle(d); },
+  csv(d) { downloadCsv(d.kind); },
+  histSearch() { histSearch(); },
+  inspDraft() { inspDraft(); },
+  rcvCommit() { rcvCommit(); },
+  spotQty(d) { if (S.spot) { S.spot.qty = qtyDelta(S.spot.qty, d.d); renderPanel(); } },
+  spotCancel() { S.spot = null; renderPanel(); },
+  spotConfirm() { spotConfirm(); },
+  spotLocScan() { startCodeScan('location', (t) => { if (S.spot) { S.spot.location = Logic.normLocation(t); renderPanel(); toast('ロケ：' + S.spot.location, 'ok'); } }); },
+
+  /* 出荷 */
+  shipReload() { S.slips = null; refreshSlips(); },
+  shipOpen(d) { shipOpen(d.no); },
+  shipBack() { S.shipSel = null; renderPanel(); },
+  shipConfirm() { shipConfirm(); },
+
+  /* 出庫 */
+  issueQty(d) { if (S.issue) { S.issue.qty = qtyDelta(S.issue.qty, d.d); renderPanel(); } },
+  issueReason(d) { if (S.issue) { S.issue.reason = d.r; renderPanel(); } },
+  issueCancel() { S.issue = null; renderPanel(); },
+  issueConfirm() { issueConfirm(); },
+
+  /* 棚移動 */
+  moveCancel() { S.move = null; renderPanel(); },
+  moveScan() { startCodeScan('location', (t) => { if (S.move) { S.move.to = Logic.normLocation(t); renderPanel(); toast('移動先：' + S.move.to, 'ok'); } }); },
+  moveConfirm() { moveConfirm(); },
+
+  /* 検品 */
+  inspTab(d) { S.inspTab = d.t; store.set('wms.inspTab', d.t); renderPanel(); },
+  slipReload() { S.slips = null; refreshSlips(); },
+  slipPanelToggle() { S.slipPanel = !S.slipPanel; S.unres = null; renderPanel(); },
+  slipScan() { slipScanStart(); },
+  slipCsvFile() { $('#slFile').click(); },
+  slipTrkFile() { $('#trFile').click(); },
+  slipTrkImport() { slipTrkImport(); },
+  slipTrack(d) { const x = (S.slips || []).find((y) => y.no === d.no) || (S.insp && S.insp.slipNo === d.no ? { tracking: S.insp.tracking, carrier: S.insp.carrier } : {}); openTracking(d.no, x.tracking, x.carrier); },
+  trkSave(d) { trkSave(d.no); },
+  trkNewScan() { startCodeScan('tracking', (t) => { const el = $('#trkNew'); if (el) el.value = Logic.normTracking(t); }); },
+  trkScan() { startCodeScan('tracking', (t) => { if (S.insp) { setTrkScan(S.insp, t); renderPanel(); beep(S.insp.trkOk ? 'ok' : 'ng'); } }); },
+  slipImport() { slipImport(); },
+  slipCreateManual() { slipCreateManual(); },
+  slipStart(d) { slipStart(d.no); },
+  async slipVoid(d) {
+    if (!(await confirmDialog({ title: '伝票を取消', ok: '取消する', danger: true, body: '<div>' + esc(d.no) + '</div><div class="sub">取り込み間違いなどの伝票を取消にします。取消した番号は再利用できません。</div>' }))) return;
+    try { await api('slipVoid', { no: d.no }); toast('取消しました：' + d.no, 'ok'); await refreshSlips(); } catch (e) { toast(errText(e), 'bad'); }
+  },
+  inspFromMaster() { S.inspSetup.plan = Logic.planFromMaster(allItems(), S.inspSetup.defQty); renderPanel(); },
+  inspStart() { inspStart(); },
+  inspAdj(d) {
+    const r = S.insp.rows.find((x) => x.key === d.key); if (!r) return;
+    r.actual = Math.max(0, r.actual + Number(d.d)); S.insp.last = d.key;
+    if (r.planned === 0 && r.actual === 0) S.insp.rows = S.insp.rows.filter((x) => x !== r);
+    persistInsp(); renderPanel();
+  },
+  inspReg(d) {
+    const r = S.insp.rows.find((x) => x.key === d.key); if (!r) return;
+    openRegister(r.jan, (it) => { r.name = it.name; r.location = it.location || ''; persistInsp(); renderPanel(); });
+  },
+  async inspAbort() { if (await confirmDialog({ title: '検品を中止', ok: '中止する', danger: true, body: '途中の結果は破棄されます（在庫・伝票の状態は変わりません）。' })) { S.insp = null; persistInsp(); renderPanel(); } },
+  inspSave() { inspSave(); },
+  inspToShip() { S.insp = null; persistInsp(); setMode('ship'); },
+  inspDone() { S.insp = null; S.inspSetup = { name: '', plan: '', defQty: 1, errors: [] }; persistInsp(); renderPanel(); onEnterMode(); },
+
+  /* 棚卸 */
+  stkStart() {
+    const u = S.stkSetup; const name = u.name.trim(); if (!name) { toast('棚卸名を入れてください', 'warn'); return; }
+    S.stk = { name: name, scope: u.scope.map(Logic.normLocation), uncounted: u.uncounted, counts: {}, order: [], last: null, result: null, started: Date.now() };
+    S.stkShowUncounted = false; persistStk(); renderPanel();
+  },
+  stkToggleUn() { S.stkShowUncounted = !S.stkShowUncounted; renderPanel(); },
+  stkAdj(d) {
+    const c = S.stk.counts[d.key]; if (!c) return; c.actual = Math.max(0, c.actual + Number(d.d)); S.stk.last = d.key; persistStk(); renderPanel();
+  },
+  stkDel(d) { delete S.stk.counts[d.key]; S.stk.order = S.stk.order.filter((k) => k !== d.key); persistStk(); renderPanel(); },
+  async stkAbort() { if (await confirmDialog({ title: '棚卸を中止', ok: '中止して破棄', danger: true, body: '数えた内容は破棄されます（在庫は変わりません）。' })) { S.stk = null; persistStk(); renderPanel(); } },
+  stkConfirm() { stkConfirm(); },
+  stkDone() { S.stk = null; S.stkSetup = { name: '', scope: [], uncounted: 'keep' }; persistStk(); renderPanel(); },
+
+  stockReload() { loadMaster(); },
+  stockEdit(d) { const it = S.master.get(d.key); if (it) openRegister(it.jan, () => renderPanel(), it); },
+  testGet() { runTest('GET'); }, testPost() { runTest('POST'); },
+  reloadMaster() { loadMaster(); },
+  impFile() { $('#impFile').click(); },
+  impRun() { runImport(); },
+  diag() { runDiag(); }
+};
+
+const Inputs = {
+  spotLoc(el) { if (S.spot) { S.spot.location = el.value; renderPanel(); } },
+  spotQty(el) { if (S.spot) { S.spot.qty = el.value === '' ? 0 : Math.floor(Number(el.value)) || 0; renderPanel(); } },
+  issueQty(el) { if (S.issue) { S.issue.qty = el.value === '' ? 0 : Math.floor(Number(el.value)) || 0; renderPanel(); } },
+  issueReason(el) { if (S.issue) { S.issue.reason = el.value; renderPanel(); } },
+  issueMemo(el) { if (S.issue) S.issue.memo = el.value; },
+  moveTo(el) { if (S.move) { S.move.to = el.value; renderPanel(); } },
+  rcvLoc(el) { const l = S.rcv && S.rcv.lines.find((x) => x.key === el.dataset.key); if (l) { l.loc = el.value; persistRcv(); } },
+  rcvNow(el) { const l = S.rcv && S.rcv.lines.find((x) => x.key === el.dataset.key); if (l) { l.now = el.value === '' ? 0 : Math.max(0, Math.floor(Number(el.value)) || 0); S.rcv.last = l.key; persistRcv(); renderPanel(); } },
+  planFilter(el) { S.planFilter = el.value; renderPanel(); },
+  admPlanSt(el) { S.admin.planSt = el.value; renderPanel(); },
+  admSlipSt(el) { S.admin.slipSt = el.value; renderPanel(); },
+  histQ(el) { S.admin.histQ = el.value; },
+  histKubun(el) { S.admin.histKubun = el.value; },
+  pnName(el) { S.rcvNew.name = el.value; },
+  pnText(el) { S.rcvNew.text = el.value; },
+  pnDef(el) { S.rcvNew.def = Math.max(1, Math.floor(Number(el.value)) || 1); },
+  shipQ(el) { S.shipQ = el.value; renderPanel(); },
+  slCsv(el) { S.slipForm.csv = el.value; },
+  slNo(el) { S.slipForm.no = el.value; },
+  slLines(el) { S.slipForm.lines = el.value; },
+  trkIn(el) { if (S.insp) { setTrkScan(S.insp, el.value); renderPanel(); } },
+  slTrk(el) { S.slipForm.trk = el.value; },
+  admSlipQ(el) { S.admin.slipQ = el.value; renderPanel(); },
+  inspName(el) { S.inspSetup.name = el.value; },
+  inspPlan(el) { S.inspSetup.plan = el.value; },
+  inspDef(el) { S.inspSetup.defQty = Math.max(1, Math.floor(Number(el.value)) || 1); },
+  stkName(el) { S.stkSetup.name = el.value; },
+  stkScope(el) { const u = S.stkSetup; u.scope = u.scope.filter((x) => x !== el.value); if (el.checked) u.scope.push(el.value); },
+  stkUnc(el) { if (el.checked) S.stkSetup.uncounted = el.value; },
+  stkActual(el) { const c = S.stk && S.stk.counts[el.dataset.key]; if (c) { c.actual = el.value === '' ? 0 : Math.max(0, Math.floor(Number(el.value)) || 0); S.stk.last = el.dataset.key; persistStk(); renderPanel(); } },
+  stQ(el) { S.stockView.q = el.value; renderPanel(); },
+  stLoc(el) { S.stockView.loc = el.value; renderPanel(); },
+  stSort(el) { S.stockView.sort = el.value; renderPanel(); },
+  cfgGas(el) { S.cfg.gas = el.value.trim(); saveCfg(); updateGasErr(); },
+  cfgToken(el) { S.cfg.token = el.value; saveCfg(); },
+  cfgSw(el) { S.cfg[el.dataset.key] = el.checked; saveCfg(); }
+};
+
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-act]'); if (!b) return;
+  if (b.tagName === 'BUTTON' && b.disabled) return;
+  unlockMedia();
+  const f = Actions[b.dataset.act]; if (f) f(b.dataset, e);
+});
+document.addEventListener('input', (e) => {
+  const el = e.target; const k = el.dataset && el.dataset.in; if (!k || !Inputs[k]) return;
+  if (el.type === 'checkbox' || el.type === 'radio' || el.tagName === 'SELECT') return; // change で処理
+  Inputs[k](el);
+});
+document.addEventListener('change', (e) => {
+  const el = e.target; const k = el.dataset && el.dataset.in; if (!k || !Inputs[k]) return;
+  if (el.type === 'checkbox' || el.type === 'radio' || el.tagName === 'SELECT') Inputs[k](el);
+});
+$('#modal').addEventListener('click', (e) => { if (e.target.id === 'modal' && !S.dlgResolve && !S.reg) closeModal(); });
+$('#manualJan').addEventListener('keydown', (e) => { if (e.key === 'Enter') Actions.manualJan(); });
+$('#photoIn').addEventListener('change', (e) => { const f = e.target.files && e.target.files[0]; e.target.value = ''; readPhoto(f); });
+document.addEventListener('change', async (e) => {
+  if (e.target.id !== 'impFile' && e.target.id !== 'slFile' && e.target.id !== 'trFile') return;
+  const id = e.target.id, f = e.target.files && e.target.files[0]; e.target.value = ''; if (!f) return;
+  try {
+    const text = Logic.decodeBytes(await f.arrayBuffer());
+    if (id === 'impFile') { $('#impText').value = text; toast('ファイルを読み込みました。「取り込む」で反映します'); }
+    else if (id === 'trFile') { S.slipForm.trk = text; renderPanel(); toast('ファイルを読み込みました。「送り状番号を取り込む」で反映します'); }
+    else { S.slipForm.csv = text; renderPanel(); toast('ファイルを読み込みました。「CSVを取り込む」で反映します'); }
+  } catch (err) { toast('ファイルを読めません：' + err.message, 'bad'); }
+});
+
+/* ---------- PWA ---------- */
+function setupManifest() {
+  try {
+    const icon = document.querySelector('link[rel=icon]').href;
+    const m = { name: '簡易WMS', short_name: '簡易WMS', display: 'standalone', orientation: 'portrait',
+      start_url: location.href.split('#')[0], scope: location.href.split('#')[0].replace(/[^/]*$/, ''),
+      background_color: '#0f766e', theme_color: '#0f766e', icons: [{ src: icon, sizes: '180x180', type: 'image/png', purpose: 'any' }] };
+    const l = document.createElement('link'); l.rel = 'manifest';
+    l.href = URL.createObjectURL(new Blob([JSON.stringify(m)], { type: 'application/manifest+json' }));
+    document.head.appendChild(l);
+  } catch (e) { /* マニフェストが無くても、metaタグでホーム画面に追加できる */ }
+}
+
+/* ---------- 起動 ---------- */
+/** URLの #gas=…&token=… を設定に取り込み、アドレスバーから消す（初回の入力を楽にするため） */
+function applyFragment() {
+  const frag = Logic.parseFragment(location.hash);
+  if (!frag) return false;
+  if (frag.gas) S.cfg.gas = frag.gas;
+  if (frag.token) { S.cfg.token = frag.token; setTimeout(() => toast('リンクに合言葉が含まれていました。このリンクは他の人に送らないでください（初回設定は手入力が安全です）', 'warn'), 600); }
+  saveCfg();
+  try { history.replaceState(null, '', location.pathname + location.search); } catch (e) { }
+  return true;
+}
+window.addEventListener('hashchange', () => { if (applyFragment()) { toast('設定を取り込みました', 'ok'); loadMaster(); } });
+
+(function init() {
+  applyFragment();
+  setupManifest(); setCam('off'); renderStatus(); renderPanel();
+  if (window.speechSynthesis) { try { speechSynthesis.getVoices(); speechSynthesis.onvoiceschanged = () => { }; } catch (e) { } }
+  if (S.cfg.gas) { loadMaster(); onEnterMode(); }
+  window.__wms = { S: S, Logic: Logic, Scanner: Scanner, Actions: Actions, api: api, onScan: onScan, handleDetected: handleDetected };
+})();
+</script>
+</body>
+</html>
