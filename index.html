@@ -44,6 +44,7 @@ nav#tabs button[aria-selected=true]{color:var(--pri);border-bottom-color:var(--p
 main{max-width:720px;margin:0 auto;padding:10px 12px}
 body.wide main{max-width:1100px}
 body.wide table.t{font-size:15px}
+#manualJan.kbdon{border-color:var(--pri,#0a84ff);box-shadow:0 0 0 2px rgba(10,132,255,.25)}
 body.wide #camBox,body.wide #camBtn,body.wide [data-act=photo],body.wide #manualJan,body.wide #manualJan+button{display:none}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;margin:10px 0;box-shadow:var(--shadow)}
 .row{display:flex;gap:8px;align-items:center}
@@ -453,7 +454,7 @@ const Logic = (function () {
 /* =====================================================================
  * 画面
  * ===================================================================== */
-const VERSION = '0.4.1';
+const VERSION = '0.4.2';
 const $ = (s, r) => (r || document).querySelector(s);
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const pad = (n) => String(n).padStart(2, '0');
@@ -466,7 +467,7 @@ const store = {
 };
 
 const S = {
-  cfg: Object.assign({ gas: '', token: '', sound: true, vibrate: true, speech: true }, store.get('wms.cfg', {})),
+  cfg: Object.assign({ gas: '', token: '', sound: true, vibrate: true, speech: true, kbd: false }, store.get('wms.cfg', {})),
   master: new Map(),            // JANキー → {jan,name,price,stock,location}
   masterState: 'none',          // none | loading | ok | error
   masterErr: '',
@@ -604,7 +605,7 @@ function toast(msg, kind) {
   setTimeout(() => d.remove(), kind === 'bad' ? 5000 : 2800);
 }
 function openModal(html) { $('#sheet').innerHTML = html; $('#modal').classList.add('on'); S.modal = true; }
-function closeModal() { $('#modal').classList.remove('on'); $('#sheet').innerHTML = ''; S.modal = false; }
+function closeModal() { $('#modal').classList.remove('on'); $('#sheet').innerHTML = ''; S.modal = false; setTimeout(kbdFocus, 0); }
 function confirmDialog(o) {
   return new Promise((resolve) => {
     S.dlgResolve = resolve;
@@ -722,7 +723,7 @@ async function onScan(raw) {
     if (!item) { beep('ng'); openRegister(v.jan, (it) => dispatchItem(it)); return; }
     speak(Logic.speechText(item));
     dispatchItem(item);
-  } finally { S.scanBusy = false; }
+  } finally { S.scanBusy = false; kbdFocus(); }
 }
 
 function dispatchItem(item) {
@@ -761,19 +762,21 @@ const CODE_LABELS = { location: 'ロケーションのバーコードを読み�
 async function startCodeScan(kind, cb) {
   S.codeScan = { kind: kind, cb: cb };
   updateCodeBar();
+  if (S.cfg.kbd) { kbdFocus(true); return; }   // スキャナ入力モード: カメラは使わず、入力欄で受ける
   if (S.cam.state !== 'on' && S.cam.state !== 'starting') await camToggle();
   if (S.cam.state !== 'on') { S.codeScan = null; updateCodeBar(); }
 }
-function cancelCodeScan() { S.codeScan = null; updateCodeBar(); }
+function cancelCodeScan() { S.codeScan = null; updateCodeBar(); kbdFocus(); }
 function onCodeScanned(text) {
   const cs = S.codeScan;
   S.codeScan = null; updateCodeBar();
   onDetected();
   if (cs && cs.cb) cs.cb(String(text).trim());
+  kbdFocus();
 }
 function updateCodeBar() {
   const b = $('#codeBar'); if (!b) return;
-  if (S.codeScan) { b.querySelector('span').textContent = CODE_LABELS[S.codeScan.kind] || 'バーコードを読み取ってください'; b.classList.add('on'); }
+  if (S.codeScan) { b.querySelector('span').textContent = (CODE_LABELS[S.codeScan.kind] || 'バーコードを読み取ってください') + (S.cfg.kbd ? '（スキャナ）' : ''); b.classList.add('on'); }
   else b.classList.remove('on');
 }
 
@@ -1668,6 +1671,25 @@ function setMode(m) {
   onEnterMode();
 }
 
+/* ---------- スキャナ（キーボード入力）モード ---------- */
+// Bluetoothスキャナ（HID）は「数字＋Enter」をキーボード入力として送る。JAN入力欄にフォーカスを残しておけば、読み取るたびに onScan が動く
+function kbdFocus(force) {
+  if (!S.cfg.kbd || S.modal) return;
+  const a = document.activeElement;
+  if (!force && a && a !== document.body && a.id !== 'manualJan' && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return;   // ほかの入力欄を使っている間は奪わない
+  const el = $('#manualJan');
+  if (el && el.offsetParent !== null && a !== el) { try { el.focus({ preventScroll: true }); } catch (e) { } }
+}
+function applyKbd() {
+  const el = $('#manualJan'); if (!el) return;
+  if (S.cfg.kbd) { el.setAttribute('inputmode', 'none'); el.placeholder = 'スキャナで読み取り（入力待ち）'; el.classList.add('kbdon'); kbdFocus(); }
+  else { el.setAttribute('inputmode', 'numeric'); el.placeholder = 'JANを手入力（読めない時）'; el.classList.remove('kbdon'); }
+  updateCodeBar();
+}
+document.addEventListener('click', () => setTimeout(kbdFocus, 0));
+document.addEventListener('focusout', () => setTimeout(kbdFocus, 60));
+setInterval(kbdFocus, 1500);
+
 /* ---------- 設定 ---------- */
 function openSettings() {
   const c = S.cfg;
@@ -1679,6 +1701,7 @@ function openSettings() {
     '<div class="pre" id="testOut" style="margin-top:8px;display:none"></div>' +
     '<div style="margin-top:10px">' +
     sw('sound', '音', c.sound) + sw('vibrate', 'バイブ（Androidのみ。iPhoneは非対応）', c.vibrate) + sw('speech', '読み上げ（商品名と金額）', c.speech) + '</div>' +
+    '<div style="margin-top:6px">' + sw('kbd', 'スキャナ（キーボード入力）モード：Bluetoothスキャナ用', c.kbd) + '<div class="sub">スキャナを「キーボード（HID）」モードでつなぎ、読み取り後にEnterを送る設定にしてください。オンの間は、画面下のJAN入力欄が読み取り待ちになり（画面のキーボードは出ません）、ロケーション・伝票番号・送り状番号の読み取り待ちの時もカメラを使わず同じ入力欄で受けます。最初に一度、入力欄をタップしてください。</div></div>' +
     '<h2 style="margin-top:16px">商品マスタの取り込み</h2>' +
     '<div class="sub">1行1商品：<b>JAN,商品名[,価格[,現在庫[,ロケーション[,SKU]]]]</b>（カンマ／タブ区切り。見出し行は自動で除外。SKUが複数なら「 | 」で区切る）。既存の商品は名前・価格・ロケーション・SKUを更新し、在庫は変えません。</div>' +
     '<textarea id="impText" data-in="impText" placeholder="4901777300446,伊右衛門 600ml,120,10,A-01,SKU-A"></textarea>' +
@@ -1924,7 +1947,7 @@ const Inputs = {
   stSort(el) { S.stockView.sort = el.value; renderPanel(); },
   cfgGas(el) { S.cfg.gas = el.value.trim(); saveCfg(); updateGasErr(); },
   cfgToken(el) { S.cfg.token = el.value; saveCfg(); },
-  cfgSw(el) { S.cfg[el.dataset.key] = el.checked; saveCfg(); }
+  cfgSw(el) { S.cfg[el.dataset.key] = el.checked; saveCfg(); if (el.dataset.key === 'kbd') applyKbd(); }
 };
 
 document.addEventListener('click', (e) => {
@@ -1984,6 +2007,7 @@ window.addEventListener('hashchange', () => { if (applyFragment()) { toast('設�
 
 (function init() {
   applyFragment();
+  applyKbd();
   setupManifest(); setCam('off'); renderStatus(); renderPanel();
   if (window.speechSynthesis) { try { speechSynthesis.getVoices(); speechSynthesis.onvoiceschanged = () => { }; } catch (e) { } }
   if (S.cfg.gas) { loadMaster(); onEnterMode(); }
