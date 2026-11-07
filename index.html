@@ -158,6 +158,7 @@ table.t td.n,table.t th.n{text-align:right;white-space:nowrap}
   <div id="panel"></div>
   <input type="file" id="slFile" accept=".csv,.tsv,.txt,text/*" hidden>
   <input type="file" id="trFile" accept=".csv,.tsv,.txt,text/*" hidden>
+  <input type="file" id="lbFile" accept=".csv,.tsv,.txt,text/*" hidden>
 </main>
 <div id="toast"></div>
 <div id="modal"><div class="sheet" id="sheet"></div></div>
@@ -446,8 +447,231 @@ const Logic = (function () {
 
   function reasonOk(r) { const t = String(r == null ? '' : r).replace(/\s+/g, ' ').trim(); return t.length >= 1 && t.length <= 100; }
 
+  /* ---------- 送り状発行用CSV（宛先は画面のメモリ上だけで扱う。GAS・シート・履歴・端末の保存領域には書かない） ----------
+   * 手本: Shopify送り状拡張（ヤマトB2=42列／佐川e飛伝III=74列／ゆうプリR=105列／クリックポストまとめ申込=8列）。
+   * 注文CSV（Shopifyの標準エクスポート）→ 配送方法で出力先を振り分け → 各社の取り込みCSVを作る。 */
+
+  /** CSV全体を「行×セル」にする。引用符の中の改行・"" に対応。区切りはカンマ（1行目にカンマが無くタブがあればタブ） */
+  function parseCsvRecords(text) {
+    const s = String(text == null ? '' : text).replace(/^﻿/, '');
+    const first = s.split(/\r\n|\r|\n/)[0] || '';
+    const delim = first.indexOf('\t') >= 0 && first.indexOf(',') < 0 ? '\t' : ',';
+    const recs = []; let row = [], cur = '', inQ = false;
+    const endRow = function () { row.push(cur); cur = ''; if (row.length > 1 || row[0] !== '') recs.push(row); row = []; };
+    for (let i = 0; i < s.length; i++) {
+      const c = s[i];
+      if (inQ) { if (c === '"') { if (s[i + 1] === '"') { cur += '"'; i++; } else inQ = false; } else cur += c; }
+      else if (c === '"') inQ = true;
+      else if (c === delim) { row.push(cur); cur = ''; }
+      else if (c === '\n' || c === '\r') { if (c === '\r' && s[i + 1] === '\n') i++; endRow(); }
+      else cur += c;
+    }
+    if (cur !== '' || row.length) endRow();
+    return recs;
+  }
+
+  const PREF_JA = ['北海道', '青森県', '岩手県', '宮城県', '秋田県', '山形県', '福島県', '茨城県', '栃木県', '群馬県', '埼玉県', '千葉県', '東京都', '神奈川県', '新潟県', '富山県', '石川県', '福井県', '山梨県', '長野県', '岐阜県', '静岡県', '愛知県', '三重県', '滋賀県', '京都府', '大阪府', '兵庫県', '奈良県', '和歌山県', '鳥取県', '島根県', '岡山県', '広島県', '山口県', '徳島県', '香川県', '愛媛県', '高知県', '福岡県', '佐賀県', '長崎県', '熊本県', '大分県', '宮崎県', '鹿児島県', '沖縄県'];
+  const PREF_EN = ['hokkaido', 'aomori', 'iwate', 'miyagi', 'akita', 'yamagata', 'fukushima', 'ibaraki', 'tochigi', 'gunma', 'saitama', 'chiba', 'tokyo', 'kanagawa', 'niigata', 'toyama', 'ishikawa', 'fukui', 'yamanashi', 'nagano', 'gifu', 'shizuoka', 'aichi', 'mie', 'shiga', 'kyoto', 'osaka', 'hyogo', 'nara', 'wakayama', 'tottori', 'shimane', 'okayama', 'hiroshima', 'yamaguchi', 'tokushima', 'kagawa', 'ehime', 'kochi', 'fukuoka', 'saga', 'nagasaki', 'kumamoto', 'oita', 'miyazaki', 'kagoshima', 'okinawa'];
+  /** 都道府県: 日本語はそのまま。英語（Tōkyō も可）と JP-13 形式のコードは日本語にする */
+  function normProvince(p) {
+    const t = String(p == null ? '' : p).trim();
+    if (!t || /[　-鿿]/.test(t)) return t;
+    const m = t.match(/^JP-?(\d{1,2})$/i);
+    if (m && Number(m[1]) >= 1 && Number(m[1]) <= 47) return PREF_JA[Number(m[1]) - 1];
+    const i = PREF_EN.indexOf(t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase());
+    return i >= 0 ? PREF_JA[i] : t;
+  }
+  function cleanZip(v) { return nfkc(v).replace(/[^0-9]/g, '').slice(0, 7); }
+  /** 電話: 先頭の ' や +81 を直し、ハイフン区切りにする */
+  function cleanPhone(v) {
+    let d = nfkc(v).replace(/^'/, '').trim();
+    if (/^\+81/.test(d)) d = '0' + d.slice(3).replace(/[^0-9]/g, '').replace(/^0/, '');
+    d = d.replace(/[^0-9]/g, '');
+    if (d.length === 11) return d.slice(0, 3) + '-' + d.slice(3, 7) + '-' + d.slice(7);
+    if (d.length === 10) return d.slice(0, 2) + '-' + d.slice(2, 6) + '-' + d.slice(6);
+    return d;
+  }
+
+  const ORDER_COLS = {
+    no: ['Name', '注文番号', '伝票番号', 'お客様管理番号', '受注コード'],
+    method: ['Shipping Method', '配送方法', '配送方法名'],
+    toName: ['Shipping Name', 'お届け先氏名', 'お届け先名', '配送先氏名', '氏名'],
+    zip: ['Shipping Zip', 'お届け先郵便番号', '郵便番号'],
+    province: ['Shipping Province Name', 'Shipping Province', 'お届け先都道府県', '都道府県'],
+    city: ['Shipping City', 'お届け先市区町村', '市区町村'],
+    addr1: ['Shipping Address1', 'お届け先住所1', 'お届け先住所', '住所1', '住所'],
+    addr2: ['Shipping Address2', 'お届け先住所2', '住所2'],
+    phone: ['Shipping Phone', 'お届け先電話番号', '電話番号', 'Phone'],
+    item: ['Lineitem name', '商品名', '品名'],
+    attrs: ['Note Attributes']
+  };
+  function pickCol(head, names) {
+    const hs = head.map(function (h) { return nfkc(h).trim().toLowerCase(); });
+    for (let n = 0; n < names.length; n++) { const i = hs.indexOf(names[n].toLowerCase()); if (i >= 0) return i; }
+    return -1;
+  }
+
+  /** 注文CSV（Shopifyの標準エクスポート／日本語の列名）を、注文ごとに1件へまとめる。宛先は先頭の行だけにあるので、同じ注文番号の行を合わせる */
+  function parseShipOrders(text) {
+    const recs = parseCsvRecords(text);
+    if (recs.length < 2) return { orders: [], errors: ['データの行がありません'] };
+    const col = {}; Object.keys(ORDER_COLS).forEach(function (k) { col[k] = pickCol(recs[0], ORDER_COLS[k]); });
+    if (col.no < 0) return { orders: [], errors: ['注文番号の列（Name）が見つかりません。Shopifyの注文CSVをそのまま読み込んでください'] };
+    const miss = [['zip', '郵便番号'], ['addr1', '住所'], ['toName', '氏名']].filter(function (x) { return col[x[0]] < 0; }).map(function (x) { return x[1]; });
+    const by = {}; const orders = [];
+    recs.slice(1).forEach(function (r) {
+      const get = function (k) { return col[k] >= 0 && r[col[k]] != null ? String(r[col[k]]).trim() : ''; };
+      const no = get('no'); if (!no) return;
+      let o = by[no];
+      if (!o) { o = by[no] = { no: no, method: '', toName: '', zip: '', province: '', city: '', addr1: '', addr2: '', phone: '', item: '', attrs: '' }; orders.push(o); }
+      ['method', 'toName', 'zip', 'province', 'city', 'addr1', 'addr2', 'phone', 'attrs', 'item'].forEach(function (k) { if (!o[k]) o[k] = get(k); });
+    });
+    orders.forEach(function (o) {
+      o.zip = cleanZip(o.zip); o.phone = cleanPhone(o.phone); o.province = normProvince(o.province);
+      o.toName = o.toName.replace(/^'/, '');
+      // セルの中の改行は、取り込みを壊すので取り除く（住所は詰め、氏名・品名は空白にする）
+      ['city', 'addr1', 'addr2'].forEach(function (k) { o[k] = o[k].replace(/\s*[\r\n]+\s*/g, ''); });
+      ['toName', 'item', 'province', 'method'].forEach(function (k) { o[k] = o[k].replace(/\s*[\r\n]+\s*/g, ' '); });
+    });
+    return { orders: orders, errors: miss.length ? ['列が見つかりません: ' + miss.join('・') + '（宛先が空になります）'] : [] };
+  }
+
+  /** 宛先の不足（発行前に直す）。出力は止めず、一覧で知らせる */
+  function orderProblems(o) {
+    const p = [];
+    if (o.zip.length !== 7) p.push('郵便番号が7桁ではありません');
+    if (!o.province && !o.city && !o.addr1) p.push('住所が空です');
+    if (!o.toName) p.push('氏名が空です');
+    if (!o.phone) p.push('電話番号が空です');
+    return p;
+  }
+
+  const CARRIER_LABEL = { clickpost: 'クリックポスト', yamato: 'ヤマト運輸', sagawa: '佐川急便', yupack: '日本郵便' };
+  const DEFAULT_ROUTES = 'クリックポスト,クリックポスト\nヤマト,ヤマト運輸\n宅急便,ヤマト運輸\n佐川,佐川急便\nゆうパック,日本郵便\nゆうパケット,日本郵便\n日本郵便,日本郵便';
+  function carrierKey(t) {
+    const s = nfkc(t);
+    if (/クリック|click ?post/i.test(s)) return 'clickpost';
+    if (/ヤマト|yamato/i.test(s)) return 'yamato';
+    if (/佐川|sagawa/i.test(s)) return 'sagawa';
+    if (/郵便|ゆう|yupack|japan ?post/i.test(s)) return 'yupack';
+    return '';
+  }
+  /** 振り分けの設定: 1行1つ「配送方法のキーワード,出力先」。上から順に最初に合ったものを使う。キーワードが空なら全件 */
+  function parseRoutes(text) {
+    const rules = [], errors = [];
+    String(text == null ? '' : text).split(/\r\n|\r|\n/).forEach(function (line, i) {
+      if (/^\s*$/.test(line) || /^\s*#/.test(line)) return;
+      const m = line.match(/^(.*)[,，=＝\t]([^,，=＝\t]*)$/);
+      const c = m ? carrierKey(m[2]) : '';
+      if (!c) { errors.push((i + 1) + '行目: 出力先が分かりません（ヤマト・佐川・日本郵便・クリックポストのどれか）'); return; }
+      rules.push({ kw: nfkc(m[1]).trim(), carrier: c });
+    });
+    return { rules: rules, errors: errors };
+  }
+  function routeOrder(method, rules) {
+    const t = nfkc(method).toLowerCase();
+    for (let i = 0; i < rules.length; i++) if (!rules[i].kw || t.indexOf(rules[i].kw.toLowerCase()) >= 0) return rules[i].carrier;
+    return '';
+  }
+
+  /** お届け希望（Note Attributes は「キー: 値」の行） */
+  function noteAttr(o, key) {
+    if (!key) return '';
+    const k = nfkc(key).trim();
+    const lines = String(o.attrs || '').split(/\r\n|\r|\n/);
+    for (let i = 0; i < lines.length; i++) {
+      const j = lines[i].indexOf(':');
+      if (j > 0 && nfkc(lines[i].slice(0, j)).trim() === k) return lines[i].slice(j + 1).trim();
+    }
+    return '';
+  }
+  const TIME_SLOTS = [['午前', '0812', '1', '01'], ['12-14', '1214', '2', '02'], ['14-16', '1416', '3', '03'], ['16-18', '1618', '4', '04'], ['18-20', '1820', '5', '05'], ['19-21', '1921', '6', '06']];
+  /** 時間帯（午前中／14〜16時／14:00-16:00 など）を各社のコードにする。分からなければ空欄 */
+  function timeCode(value, carrier) {
+    const t = nfkc(value).replace(/\s/g, '').replace(/[〜～~–—]/g, '-').replace(/:00/g, '').replace(/時/g, '');
+    if (!t) return '';
+    let key = /^午前/.test(t) ? '午前' : '';
+    if (!key) { const m = t.match(/(\d{1,2})-(\d{1,2})/); if (m) key = Number(m[1]) + '-' + Number(m[2]); }
+    const slot = TIME_SLOTS.filter(function (s) { return s[0] === key; })[0];
+    return slot ? slot[{ yamato: 1, sagawa: 2, yupack: 3 }[carrier]] : '';
+  }
+  function slashDate(v) { return String(v || '').trim().replace(/-/g, '/'); }
+  function fullAddress(o) { return [o.province, o.city, o.addr1, o.addr2].filter(Boolean).join(''); }
+  function itemName(o) { return o.item || '商品'; }
+
+  /**
+   * 1つの出力先ぶんのCSVを作る。戻り値: [{ name, header, rows }]（クリックポストは40件ごとに分割）
+   * ctx = { shipper: {name, postCode, address, phone}, dateKey, timeKey, today: 'YYYY/MM/DD', ymd: 'YYYYMMDD' }
+   */
+  function buildCarrierCsv(carrier, orders, ctx) {
+    const sh = ctx.shipper || {}, sAddr = sh.address || '', sZip = String(sh.postCode || '').replace(/[^0-9]/g, '');
+    const dt = function (o, c) { return [slashDate(noteAttr(o, ctx.dateKey)), timeCode(noteAttr(o, ctx.timeKey), c)]; };
+    let header, rows;
+    if (carrier === 'yamato') {
+      header = ['お客様管理番号', '送り状種類', 'クール区分', '伝票番号', '出荷予定日', 'お届け予定（指定）日', '配達時間帯', 'お届け先コード', 'お届け先電話番号', 'お届け先電話番号枝番', 'お届け先郵便番号', 'お届け先住所', 'お届け先住所（アパートマンション名）', 'お届け先会社・部門名1', 'お届け先会社・部門名2', 'お届け先名', 'お届け先名略称カナ', '敬称', 'ご依頼主コード', 'ご依頼主電話番号', 'ご依頼主電話番号枝番', 'ご依頼主郵便番号', 'ご依頼主住所', 'ご依頼主（アパートマンション名）', 'ご依頼主名', 'ご依頼主略称カナ', '品名コード1', '品名1', '品名コード2', '品名2', '荷扱い1', '荷扱い2', '記事', 'コレクト代金引換額（税込）', 'コレクト内消費税額等', '営業所止め', '営業所コード', '発行枚数', '個数口栓の印字', 'ご請求先顧客コード', 'ご請求先分類コード', '運賃管理番号'];
+      rows = orders.map(function (o) {
+        const r = Array(42).fill(''), a = fullAddress(o), item = itemName(o), d = dt(o, 'yamato');
+        r[0] = o.no; r[4] = ctx.today; r[5] = d[0]; r[6] = d[1]; r[8] = o.phone; r[10] = o.zip;
+        r[11] = a.slice(0, 21); r[12] = a.slice(21); r[15] = o.toName;
+        r[19] = sh.phone || ''; r[21] = sZip; r[22] = sAddr.slice(0, 21); r[23] = sAddr.slice(21); r[24] = sh.name || '';
+        r[27] = item.slice(0, 25); r[29] = item.length > 25 ? item.slice(25) : '';
+        r[37] = '1'; r[38] = '1';
+        return r;
+      });
+      return [{ name: 'yamato_b2_' + ctx.ymd + '.csv', header: header, rows: rows }];
+    }
+    if (carrier === 'sagawa') {
+      header = ['お届け先コード取得区分', 'お届け先コード', 'お届け先電話番号', 'お届け先郵便番号', 'お届け先住所１', 'お届け先住所２', 'お届け先住所３', 'お届け先名称１', 'お届け先名称２', 'お客様管理番号', 'お客様コード', '部署ご担当者コード取得区分', '部署ご担当者コード', '部署ご担当者名称', '荷送人電話番号', 'ご依頼主コード取得区分', 'ご依頼主コード', 'ご依頼主電話番号', 'ご依頼主郵便番号', 'ご依頼主住所１', 'ご依頼主住所２', 'ご依頼主名称１', 'ご依頼主名称２', '荷姿', '品名１', '品名２', '品名３', '品名４', '品名５', '荷札荷姿', '荷札品名１', '荷札品名２', '荷札品名３', '荷札品名４', '荷札品名５', '荷札品名６', '荷札品名７', '荷札品名８', '荷札品名９', '荷札品名１０', '荷札品名１１', '出荷個数', 'スピード指定', 'クール便指定', '配達日', '配達指定時間帯', '配達指定時間（時分）', '代引金額', '消費税', '決済種別', '保険金額', '指定シール１', '指定シール２', '指定シール３', '営業所受取', 'ＳＲＣ区分', '営業所受取営業所コード', '元着区分', 'メールアドレス', 'ご不在時連絡先', '出荷日', 'お問合せ送り状Ｎｏ', '出荷場印字区分', '集約解除指定', '編集０１', '編集０２', '編集０３', '編集０４', '編集０５', '編集０６', '編集０７', '編集０８', '編集０９', '編集１０'];
+      rows = orders.map(function (o) {
+        const r = Array(74).fill(''), a = fullAddress(o), item = itemName(o), d = dt(o, 'sagawa'), sn = sh.name || '';
+        r[2] = o.phone; r[3] = o.zip; r[4] = a.slice(0, 16); r[5] = a.slice(16, 32); r[6] = a.slice(32);
+        r[7] = o.toName.slice(0, 16); r[8] = o.toName.slice(16); r[9] = o.no;
+        r[14] = sh.phone || ''; r[17] = sh.phone || ''; r[18] = sZip; r[19] = sAddr.slice(0, 16); r[20] = sAddr.slice(16, 32);
+        r[21] = sn.slice(0, 16); r[22] = sn.slice(16);
+        r[24] = item.slice(0, 16); r[25] = item.slice(16, 32); r[26] = item.slice(32, 48); r[27] = item.slice(48, 64); r[28] = item.slice(64, 80);
+        r[41] = '1'; r[44] = d[0]; r[45] = d[1];
+        return r;
+      });
+      return [{ name: 'sagawa_eflight3_' + ctx.ymd + '.csv', header: header, rows: rows }];
+    }
+    if (carrier === 'yupack') {
+      header = ['お客様側管理番号', 'お問い合わせ番号', '', '発送予定日', '', '', '', '郵便種別', '保冷種別', '元／着払／代引', '書留／セキュリティ種別', '', '送り状種別', '', 'お届け先　郵便番号', 'お届け先 住所1', 'お届け先 住所2', 'お届け先 住所3', 'お届け先 名称', '', '', 'お届け先 電話番号', '', '', '', '', '', '', '', '', '', 'ご依頼主　郵便番号', 'ご依頼主 住所1', 'ご依頼主 住所2', 'ご依頼主 住所3', 'ご依頼主 名称', '', '', 'ご依頼主 電話番号', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '商品サイズ／厚さ区分', '', '', '', '', '配達希望日', '配達時間帯区分', '', '', '', '', '', '複数個口数', '記事名１', '記事名２', 'フリー項目０１', 'フリー項目０２', 'フリー項目０３', 'フリー項目０４', 'フリー項目０５', 'フリー項目０６', 'フリー項目０７', 'フリー項目０８', 'フリー項目０９', 'フリー項目１０', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '代引金額', '', '', '商品番号', '品名'];
+      rows = orders.map(function (o) {
+        const r = Array(105).fill(''), a = fullAddress(o), d = dt(o, 'yupack');
+        r[0] = o.no; r[3] = ctx.today; r[14] = o.zip; r[15] = a.slice(0, 25); r[16] = a.slice(25, 50); r[17] = a.slice(50);
+        r[18] = o.toName; r[21] = o.phone;
+        r[31] = sZip; r[32] = sAddr.slice(0, 25); r[33] = sAddr.slice(25, 50); r[34] = sAddr.slice(50); r[35] = sh.name || ''; r[38] = sh.phone || '';
+        r[66] = d[0]; r[67] = d[1]; r[73] = '1'; r[104] = itemName(o);
+        return r;
+      });
+      return [{ name: 'yupack_r_' + ctx.ymd + '.csv', header: header, rows: rows }];
+    }
+    // クリックポスト「まとめ申込」: 内容品（H列）に注文番号を入れ、追跡番号との紐づけに使う。40件ごとに分割
+    header = ['お届け先郵便番号', 'お届け先氏名', 'お届け先敬称', 'お届け先住所1行目', 'お届け先住所2行目', 'お届け先住所3行目', 'お届け先住所4行目', '内容品'];
+    const all = orders.map(function (o) { return [o.zip, o.toName, '様', o.province, [o.city, o.addr1].filter(Boolean).join(''), o.addr2, '', o.no]; });
+    const files = [], total = Math.max(1, Math.ceil(all.length / 40));
+    for (let i = 0; i < all.length; i += 40) {
+      const n = i / 40 + 1;
+      files.push({ name: total > 1 ? 'clickpost_batch' + n + '_of' + total + '_' + ctx.ymd + '.csv' : 'clickpost_' + ctx.ymd + '.csv', header: header, rows: all.slice(i, i + 40) });
+    }
+    return files;
+  }
+
+  /** 注文を出力先ごとに分け、CSVを作る。未分類（どの設定にも合わない配送方法）は出力しない */
+  function buildLabelSet(orders, rules, ctx) {
+    const groups = { clickpost: [], yamato: [], sagawa: [], yupack: [] }, unrouted = [];
+    orders.forEach(function (o) { const c = routeOrder(o.method, rules); if (c) groups[c].push(o); else unrouted.push(o); });
+    const out = [];
+    ['clickpost', 'yamato', 'sagawa', 'yupack'].forEach(function (c) {
+      if (!groups[c].length) return;
+      out.push({ carrier: c, label: CARRIER_LABEL[c], count: groups[c].length, files: buildCarrierCsv(c, groups[c], ctx), problems: groups[c].filter(function (o) { return orderProblems(o).length; }).map(function (o) { return { no: o.no, reasons: orderProblems(o) }; }) });
+    });
+    return { sets: out, unrouted: unrouted };
+  }
+
   return { normTracking, toCsv, parseCodeQtyText, rcvStatus, rcvSummary, shipPreview, reasonOk, nfkc, janDigits, janKey, checkDigitOk, validateJan, normLocation, yen, speechText, splitCells, parsePlanText,
     planFromMaster, decodeBytes, parseFragment, gasUrlProblem, inspStatus, inspSummary, stkView, filterStock,
+    parseCsvRecords, normProvince, cleanZip, cleanPhone, parseShipOrders, orderProblems, parseRoutes, routeOrder, carrierKey, noteAttr, timeCode, buildCarrierCsv, buildLabelSet, CARRIER_LABEL, DEFAULT_ROUTES,
     rgbaToGray, rotate90Gray, cropRegion, createDecoder };
 })();
 /* </logic> */
@@ -455,7 +679,7 @@ const Logic = (function () {
 /* =====================================================================
  * 画面
  * ===================================================================== */
-const VERSION = '0.5.0';
+const VERSION = '0.6.0';
 const $ = (s, r) => (r || document).querySelector(s);
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const pad = (n) => String(n).padStart(2, '0');
@@ -1603,7 +1827,8 @@ const CSV_KINDS = [['master', '商品マスタ'], ['stock', '在庫一覧'], ['i
 const SLIP_STATUSES = ['未検品', '検品中', '検品済', '出荷済', 'キャンセル'];
 function renderAdmin() {
   const a = S.admin;
-  let h = seg([['plans', '入荷予定'], ['slips', '出荷伝票'], ['stock', '在庫'], ['hist', '履歴']], a.tab, 'adminTab');
+  let h = seg([['plans', '入荷予定'], ['slips', '出荷伝票'], ['stock', '在庫'], ['hist', '履歴'], ['label', '送り状CSV']], a.tab, 'adminTab');
+  if (a.tab === 'label') return h + renderAdminLabel();
   h += '<div class="card"><div class="sub">CSVダウンロード（UTF-8・Excel対応）</div><div class="row wrap" style="margin-top:6px">' +
     CSV_KINDS.map((k) => '<button class="btn sm" data-act="csv" data-kind="' + k[0] + '">' + esc(k[1]) + '</button>').join('') + '</div></div>';
   if (!S.cfg.gas) return h + noConfigHint();
@@ -1695,6 +1920,79 @@ function adminEnter() {
   S.admin.detail = {}; S.admin.open = {};
   refreshPlans(); refreshSlipsQuiet().then(renderPanel); loadMaster();
 }
+
+/* <label-ui> */
+/* ---------- 送り状発行用CSV（宛先は画面のメモリ上だけ。通信・保存はしない。保存するのは発送元などの設定だけ） ---------- */
+const LBL_CFG_KEYS = ['shipName', 'shipZip', 'shipAddr', 'shipPhone', 'routes', 'dateKey', 'timeKey', 'onlyOpen'];
+const LBL = {
+  cfg: Object.assign({ shipName: '', shipZip: '', shipAddr: '', shipPhone: '', routes: Logic.DEFAULT_ROUTES, dateKey: '', timeKey: '', onlyOpen: true }, store.get('wms.label', {})),
+  paste: '', orders: null, built: null, parseErr: []
+};
+function lblSave() { const o = {}; LBL_CFG_KEYS.forEach((k) => { o[k] = LBL.cfg[k]; }); store.set('wms.label', o); }
+function labelRun() {
+  if (LBL.paste.trim()) { const r = Logic.parseShipOrders(LBL.paste); LBL.orders = r.orders; LBL.parseErr = r.errors; }
+  LBL.paste = '';
+  if (!LBL.orders || !LBL.orders.length) { LBL.built = null; if (!LBL.parseErr.length) toast('注文のデータがありません。CSVを読み込むか貼り付けてください', 'warn'); renderPanel(); return; }
+  const pr = Logic.parseRoutes(LBL.cfg.routes);
+  let orders = LBL.orders;
+  if (LBL.cfg.onlyOpen && S.slips) {
+    const done = {}; S.slips.forEach((x) => { if (x.status === '出荷済' || x.status === 'キャンセル') done[x.no] = true; });
+    orders = orders.filter((o) => !done[o.no]);
+  }
+  const d = new Date();
+  const ctx = { shipper: { name: LBL.cfg.shipName, postCode: LBL.cfg.shipZip, address: LBL.cfg.shipAddr, phone: LBL.cfg.shipPhone }, dateKey: LBL.cfg.dateKey, timeKey: LBL.cfg.timeKey,
+    today: d.getFullYear() + '/' + pad(d.getMonth() + 1) + '/' + pad(d.getDate()), ymd: d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()) };
+  LBL.built = Logic.buildLabelSet(orders, pr.rules, ctx);
+  LBL.built.skipped = LBL.orders.length - orders.length; LBL.built.routeErr = pr.errors;
+  renderPanel();
+}
+function labelClear() { LBL.paste = ''; LBL.orders = null; LBL.built = null; LBL.parseErr = []; renderPanel(); toast('読み込んだ宛先のデータを消しました', 'ok'); }
+function labelDownload(i, j) {
+  const f = LBL.built && LBL.built.sets[i] && LBL.built.sets[i].files[j]; if (!f) return;
+  const blob = new Blob(['﻿' + Logic.toCsv(f.header, f.rows)], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = f.name;
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+  toast(f.name + '（' + f.rows.length + '件）を作りました', 'ok');
+}
+function renderAdminLabel() {
+  const c = LBL.cfg, b = LBL.built;
+  let h = hint('Shopifyの注文CSV（管理画面の「注文」→「エクスポート」）を読み込むと、<b>配送方法</b>で出力先を振り分け、ヤマト（B2）・佐川（e飛伝III）・日本郵便（ゆうプリR）・クリックポストの<b>取り込み用CSV</b>を作ります。<br>' +
+    '<b>宛先は、この画面の中だけで扱います</b>。GAS・スプレッドシート・この端末の保存領域には書きません（画面を閉じる、または「データを消す」で消えます）。送り状の発行は各社のソフトで行い、できた番号は、検品の「送り状番号を取り込む」で戻します。');
+  h += '<div class="card"><div class="row wrap"><button class="btn sm" data-act="labelFile">ファイルを選ぶ</button><button class="btn pri grow" data-act="labelRun">振り分けてCSVを作る</button></div>' +
+    '<textarea data-in="lbPaste" style="min-height:70px;margin-top:6px" placeholder="または、注文CSVの中身をここに貼り付け">' + esc(LBL.paste) + '</textarea>' +
+    (LBL.orders ? '<div class="sub" style="margin-top:6px">読み込み済み: ' + LBL.orders.length + '件（宛先を含む。使い終わったら消してください）　<button class="btn sm" data-act="labelClear">データを消す</button></div>' : '') + '</div>';
+  LBL.parseErr.forEach((m) => { h += '<div class="banner warn">' + esc(m) + '</div>'; });
+  h += '<details class="card"' + (c.shipName ? '' : ' open') + '><summary><b>設定</b>（発送元・振り分け・お届け希望）</summary>' +
+    '<label class="f">発送元の名前（ご依頼主）</label><input type="text" data-in="lbShipName" value="' + esc(c.shipName) + '" autocomplete="off">' +
+    '<label class="f">発送元の郵便番号</label><input type="text" data-in="lbShipZip" value="' + esc(c.shipZip) + '" inputmode="numeric" autocomplete="off" placeholder="1500001">' +
+    '<label class="f">発送元の住所</label><input type="text" data-in="lbShipAddr" value="' + esc(c.shipAddr) + '" autocomplete="off">' +
+    '<label class="f">発送元の電話番号</label><input type="text" data-in="lbShipPhone" value="' + esc(c.shipPhone) + '" inputmode="tel" autocomplete="off">' +
+    '<label class="f">配送方法の振り分け（1行1つ。<b>キーワード,出力先</b>。上から順に最初に合ったものを使う）</label>' +
+    '<textarea data-in="lbRoutes" style="min-height:110px" spellcheck="false">' + esc(c.routes) + '</textarea>' +
+    '<div class="sub">キーワードは、Shopifyの配送方法の名前に含まれる文字。出力先は、ヤマト・佐川・日本郵便・クリックポストのどれか。どれにも合わない注文は出力しません。</div>' +
+    '<label class="f">お届け希望日のキー（任意。注文の「Note Attributes」の項目名）</label><input type="text" data-in="lbDateKey" value="' + esc(c.dateKey) + '" autocomplete="off" placeholder="例: 配送希望日">' +
+    '<label class="f">お届け時間帯のキー（任意）</label><input type="text" data-in="lbTimeKey" value="' + esc(c.timeKey) + '" autocomplete="off" placeholder="例: 時間帯">' +
+    '<label style="display:flex;align-items:center;gap:6px;margin-top:8px"><input type="checkbox" class="chk" data-in="lbOnlyOpen"' + (c.onlyOpen ? ' checked' : '') + '> WMSで出荷済み・キャンセルの伝票は除く（二重発行の防止）</label>' +
+    '<div class="sub">この設定は、この端末のブラウザにだけ保存します（宛先は含みません）。</div></details>';
+  if (!b) return h;
+  if (b.skipped) h += '<div class="banner">WMSで出荷済み・キャンセルの ' + b.skipped + '件は除きました</div>';
+  (b.routeErr || []).forEach((m) => { h += '<div class="banner warn">' + esc(m) + '</div>'; });
+  if (!b.sets.length) h += hint('出力できる注文がありません。');
+  b.sets.forEach((st, i) => {
+    h += '<div class="card"><b>' + esc(st.label) + '</b> <span class="tag">' + st.count + '件</span>' +
+      '<div class="row wrap" style="margin-top:6px">' + st.files.map((f, j) => '<button class="btn sm pri" data-act="labelDl" data-i="' + i + '" data-j="' + j + '">⬇ ' + esc(f.name) + '（' + f.rows.length + '件）</button>').join('') + '</div>';
+    if (st.problems.length) h += '<div class="banner warn" style="margin-top:6px">宛先に不足がある注文があります（発行前に直してください）<small>' + st.problems.slice(0, 8).map((p) => esc(p.no) + '：' + esc(p.reasons.join('・'))).join('<br>') + (st.problems.length > 8 ? '<br>…ほか' + (st.problems.length - 8) + '件' : '') + '</small></div>';
+    h += '</div>';
+  });
+  if (b.unrouted.length) {
+    const cnt = {}; b.unrouted.forEach((o) => { const k = o.method || '（配送方法なし）'; cnt[k] = (cnt[k] || 0) + 1; });
+    h += '<div class="banner warn">振り分け先がない注文: ' + b.unrouted.length + '件（出力していません）<small>配送方法: ' + Object.keys(cnt).map((k) => esc(k) + '（' + cnt[k] + '）').join('、') + '<br>設定の「振り分け」に追加すると出力されます。</small></div>';
+  }
+  return h;
+}
+/* </label-ui> */
 
 /* ---------- 在庫確認 ---------- */
 function renderStock() {
@@ -1925,6 +2223,10 @@ const Actions = {
   adminReload() { S.plans = null; S.slips = null; S.admin.detail = {}; adminEnter(); },
   adminToggle(d) { adminToggle(d); },
   csv(d) { downloadCsv(d.kind); },
+  labelFile() { $('#lbFile').click(); },
+  labelRun() { labelRun(); },
+  labelClear() { labelClear(); },
+  labelDl(d) { labelDownload(Number(d.i), Number(d.j)); },
   histSearch() { histSearch(); },
   inspDraft() { inspDraft(); },
   rcvCommit() { rcvCommit(); },
@@ -2023,6 +2325,15 @@ const Actions = {
 };
 
 const Inputs = {
+  lbPaste(el) { LBL.paste = el.value; },
+  lbShipName(el) { LBL.cfg.shipName = el.value; lblSave(); },
+  lbShipZip(el) { LBL.cfg.shipZip = el.value; lblSave(); },
+  lbShipAddr(el) { LBL.cfg.shipAddr = el.value; lblSave(); },
+  lbShipPhone(el) { LBL.cfg.shipPhone = el.value; lblSave(); },
+  lbRoutes(el) { LBL.cfg.routes = el.value; lblSave(); },
+  lbDateKey(el) { LBL.cfg.dateKey = el.value; lblSave(); },
+  lbTimeKey(el) { LBL.cfg.timeKey = el.value; lblSave(); },
+  lbOnlyOpen(el) { LBL.cfg.onlyOpen = el.checked; lblSave(); },
   slSel(el) { S.slSel[el.dataset.no] = el.checked; renderPanel(); },
   grpName(el) { S.grpName = el.value; },
   spotLoc(el) { if (S.spot) { S.spot.location = el.value; renderPanel(); } },
@@ -2082,11 +2393,12 @@ $('#modal').addEventListener('click', (e) => { if (e.target.id === 'modal' && !S
 $('#manualJan').addEventListener('keydown', (e) => { if (e.key === 'Enter') Actions.manualJan(); });
 $('#photoIn').addEventListener('change', (e) => { const f = e.target.files && e.target.files[0]; e.target.value = ''; readPhoto(f); });
 document.addEventListener('change', async (e) => {
-  if (e.target.id !== 'impFile' && e.target.id !== 'slFile' && e.target.id !== 'trFile') return;
+  if (e.target.id !== 'impFile' && e.target.id !== 'slFile' && e.target.id !== 'trFile' && e.target.id !== 'lbFile') return;
   const id = e.target.id, f = e.target.files && e.target.files[0]; e.target.value = ''; if (!f) return;
   try {
     const text = Logic.decodeBytes(await f.arrayBuffer());
     if (id === 'impFile') { $('#impText').value = text; toast('ファイルを読み込みました。「取り込む」で反映します'); }
+    else if (id === 'lbFile') { LBL.paste = text; labelRun(); }
     else if (id === 'trFile') { S.slipForm.trk = text; renderPanel(); toast('ファイルを読み込みました。「送り状番号を取り込む」で反映します'); }
     else { S.slipForm.csv = text; renderPanel(); toast('ファイルを読み込みました。「CSVを取り込む」で反映します'); }
   } catch (err) { toast('ファイルを読めません：' + err.message, 'bad'); }
