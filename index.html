@@ -1716,6 +1716,15 @@ function sw(key, label, on) {
   return '<div class="sw"><span>' + esc(label) + '</span><input type="checkbox" data-in="cfgSw" data-key="' + key + '" ' + (on ? 'checked' : '') + '></div>';
 }
 function saveCfg() { store.set('wms.cfg', S.cfg); renderStatus(); }
+// 設定のURL・合言葉を入れ終わったら、マスタを自動で読み込む（入力途中のエラーを避けるため、入力が止まってから）
+let reloadTimer = null;
+function reloadMasterSoon() {
+  clearTimeout(reloadTimer);
+  reloadTimer = setTimeout(() => {
+    const c = S.cfg;
+    if (c.gas && !Logic.gasUrlProblem(c.gas) && c.token && c.token.length >= 16) loadMaster();
+  }, 1200);
+}
 function updateGasErr() {
   const el = $('#cfgGasErr'); if (!el) return;
   const p = S.cfg.gas ? Logic.gasUrlProblem(S.cfg.gas) : ''; el.textContent = p;
@@ -1945,8 +1954,8 @@ const Inputs = {
   stQ(el) { S.stockView.q = el.value; renderPanel(); },
   stLoc(el) { S.stockView.loc = el.value; renderPanel(); },
   stSort(el) { S.stockView.sort = el.value; renderPanel(); },
-  cfgGas(el) { S.cfg.gas = el.value.trim(); saveCfg(); updateGasErr(); },
-  cfgToken(el) { S.cfg.token = el.value; saveCfg(); },
+  cfgGas(el) { S.cfg.gas = el.value.trim(); saveCfg(); updateGasErr(); reloadMasterSoon(); },
+  cfgToken(el) { S.cfg.token = el.value; saveCfg(); reloadMasterSoon(); },
   cfgSw(el) { S.cfg[el.dataset.key] = el.checked; saveCfg(); if (el.dataset.key === 'kbd') applyKbd(); }
 };
 
