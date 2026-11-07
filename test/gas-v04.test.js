@@ -417,7 +417,7 @@ test('新しいシートの文字列保存: ID・JAN・伝票番号の先頭0が
   assert.deepEqual(lineRows(env, SLIP).map((r) => [r[0], r[1]]), [['SH-0001', '001234'], ['SH-0002', '001235']]);
   assert.ok(lineRows(env, SLINE).every((r) => typeof r[1] === 'string'));
   assert.equal(env.get('slipGet', { no: '001234' }).ok, true);
-  assert.deepEqual(env.sheet(SLIP).dump()[0], ['伝票ID', '伝票番号', '出所', '状態', '作成日時', '検品日時', '出荷日時', 'メモ', '送り状番号', '配送業者']);
+  assert.deepEqual(env.sheet(SLIP).dump()[0], ['伝票ID', '伝票番号', '出所', '状態', '作成日時', '検品日時', '出荷日時', 'メモ', '送り状番号', '配送業者', '作業グループ', '作業開始日時']);
   assert.deepEqual(env.sheet(SLINE).dump()[0], ['伝票ID', 'JAN', '商品名', '数量', '検品済数', '元コード']);
   assert.deepEqual(env.sheet(PLINE).dump()[0], ['予定ID', 'JAN', '商品名', '予定数', '検品済数', '入荷済数', '状態', '備考']);
 });
@@ -574,7 +574,7 @@ test('送り状番号が無い伝票は、従来どおり検品済みにでき�
   assert.equal(env.post('slipInspect', { no: 'K4', items: [{ jan: J1, count: 1 }] }).error, 'tracking_required');
 });
 
-test('CSV出力（出荷伝票）に送り状番号と配送業者が入る。シートの見出しは既存の8列に2列だけ補われる', () => {
+test('CSV出力（出荷伝票）に送り状番号と配送業者が入る。シートの見出しは既存の8列に4列だけ補われる', () => {
   const env = setup();
   slip(env, 'K5', [{ code: J1, qty: 1 }]);
   env.post('slipTracking', { no: 'K5', tracking: TRK, carrier: 'ヤマト運輸' });
@@ -585,7 +585,7 @@ test('CSV出力（出荷伝票）に送り状番号と配送業者が入る。�
   const sh = env2.ss.insertSheet(SLIP);
   sh.getRange(1, 1, 1, 8).setValues([['伝票ID', '伝票番号', '出所', '状態', '作成日時', '検品日時', '出荷日時', 'メモ']]);
   env2.get('slipList');
-  assert.deepEqual(env2.sheet(SLIP).dump()[0].slice(8), ['送り状番号', '配送業者']);
+  assert.deepEqual(env2.sheet(SLIP).dump()[0].slice(8), ['送り状番号', '配送業者', '作業グループ', '作業開始日時']);
 });
 
 test('セキュリティ: 合言葉が短いと拒否する。数式として解釈される文字列は文字列のまま保存される。メモの改行は空白になる', () => {

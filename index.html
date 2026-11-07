@@ -44,6 +44,7 @@ nav#tabs button[aria-selected=true]{color:var(--pri);border-bottom-color:var(--p
 main{max-width:720px;margin:0 auto;padding:10px 12px}
 body.wide main{max-width:1100px}
 body.wide table.t{font-size:15px}
+.chk{width:22px;height:22px;flex:none;margin-right:4px}
 #manualJan.kbdon{border-color:var(--pri,#0a84ff);box-shadow:0 0 0 2px rgba(10,132,255,.25)}
 body.wide #camBox,body.wide #camBtn,body.wide [data-act=photo],body.wide #manualJan,body.wide #manualJan+button{display:none}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;margin:10px 0;box-shadow:var(--shadow)}
@@ -454,7 +455,7 @@ const Logic = (function () {
 /* =====================================================================
  * 画面
  * ===================================================================== */
-const VERSION = '0.4.2';
+const VERSION = '0.5.0';
 const $ = (s, r) => (r || document).querySelector(s);
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const pad = (n) => String(n).padStart(2, '0');
@@ -476,7 +477,7 @@ const S = {
   rcvTab: store.get('wms.rcvTab', 'plan'), plans: null, rcv: store.get('wms.rcv', null),
   rcvShowNew: false, rcvNew: { name: '', text: '', def: 1, errors: [] },
   spot: null, issue: null, move: null, lastMoveTo: '',
-  slips: null, shipSel: null, shipQ: '',
+  slips: null, shipSel: null, shipQ: '', slSel: {}, grpName: '', pick: null,
   inspTab: store.get('wms.inspTab', 'slip'), slipPanel: false, slipForm: { csv: '', no: '', lines: '', trk: '' }, slipRes: null, slipTrkRes: null,
   unres: null, codeScan: null, planFilter: 'open',
   admin: { tab: 'plans', planSt: 'open', slipSt: 'all', slipQ: '', open: {}, detail: {}, histQ: '', histKubun: '', hist: null },
@@ -749,7 +750,7 @@ function dispatchItem(item) {
     S.move = { item: item, to: (S.move && S.move.to) || S.lastMoveTo || '' };
     renderPanel();
   } else if (m === 'insp') {
-    inspScan(item);
+    if (S.pick && !S.insp) pickScan(item); else inspScan(item);
   } else if (m === 'stk') {
     stkScan(item);
   } else {
@@ -1065,7 +1066,7 @@ function renderShip() {
   h += hint('出荷は、<b>検品済み</b>の伝票を選んで確定します（確定すると、明細の分だけ在庫が減ります）。' + (waiting ? '<br>未検品の伝票が ' + waiting + ' 件あります。「検品」タブで検品してください。' : '') + '<br>伝票に紐づかない払い出しは「出庫」タブです。');
   if (!ready.length) return h + '<div class="card sub">出荷できる（検品済みの）伝票はありません。</div>';
   ready.forEach((s) => {
-    h += '<div class="item match"><div class="row"><div class="grow"><div style="font-weight:700">' + esc(s.no) + '</div><div class="sub">' + s.lines + '品 ' + s.qty + '点　検品 ' + esc(String(s.inspectedAt).slice(5, 16)) + (s.tracking ? ' <span class="tag loc">📦 ' + esc(s.tracking) + '</span>' : ' <span class="tag">送り状なし</span>') + '</div></div>' +
+    h += '<div class="item match"><div class="row"><div class="grow"><div style="font-weight:700">' + esc(s.no) + '</div><div class="sub">' + s.lines + '品 ' + s.qty + '点　検品 ' + esc(String(s.inspectedAt).slice(5, 16)) + (s.tracking ? ' <span class="tag loc">📦 ' + esc(s.tracking) + '</span>' : ' <span class="tag">送り状なし</span>') + (s.group ? ' <span class="tag">作業 ' + esc(s.group) + '</span>' : '') + '</div></div>' +
       '<button class="btn sm pri" data-act="shipOpen" data-no="' + esc(s.no) + '">選ぶ</button></div></div>';
   });
   return h;
@@ -1212,21 +1213,110 @@ function renderInspListSetup() {
     '<button class="btn sm grow" data-act="inspFromMaster">マスタ全商品から予定を作る</button></div>' +
     '<button class="btn pri block" style="margin-top:10px" data-act="inspStart">照合を開始</button></div>' + noConfigHint();
 }
+function slipGroups() {
+  const g = {};
+  (S.slips || []).forEach((x) => {
+    if (x.group && x.status !== '出荷済' && x.status !== 'キャンセル') (g[x.group] = g[x.group] || { name: x.group, at: x.groupAt || '', slips: [] }).slips.push(x);
+  });
+  return Object.keys(g).map((k) => g[k]).sort((m, n) => (m.at < n.at ? 1 : (m.at > n.at ? -1 : 0)));
+}
+function slipRowHtml(s, o) {
+  o = o || {};
+  const inspectable = s.status === '未検品' || s.status === '検品中';
+  return '<div class="item' + (s.status === '検品済' ? ' match' : '') + '"><div class="row">' +
+    (o.check ? '<input type="checkbox" class="chk" data-in="slSel" data-no="' + esc(s.no) + '" ' + (S.slSel[s.no] ? 'checked' : '') + ' aria-label="選ぶ">' : '') +
+    '<div class="grow"><div style="font-weight:700">' + esc(s.no) + '</div><div class="sub">' + s.lines + '品 ' + s.qty + '点　取込 ' + esc(String(s.importedAt).slice(5, 16)) + ' <span class="tag">' + esc(s.source || '') + '</span> <span class="tag ' + (STATUS_TAG[s.status] || '') + '">' + esc(s.status) + (s.inspected && s.status !== '検品済' ? ' ' + s.inspected + '/' + s.qty : '') + '</span>' +
+    (s.tracking ? ' <span class="tag loc">📦 ' + esc(s.tracking) + '</span>' : '') + '</div></div>' +
+    '<div style="display:flex;flex-direction:column;gap:6px">' +
+    (inspectable ? '<button class="btn sm pri" data-act="slipStart" data-no="' + esc(s.no) + '">' + (s.status === '検品中' ? '続きを検品' : '検品開始') + '</button>' : '<span class="sub">「出荷」タブで出荷</span>') +
+    (inspectable || s.status === '検品済' ? '<button class="btn sm" data-act="slipTrack" data-no="' + esc(s.no) + '">送り状</button>' : '') +
+    (o.voidable ? '<button class="btn sm" data-act="slipVoid" data-no="' + esc(s.no) + '">キャンセル</button>' : '') + '</div></div></div>';
+}
 function renderSlipSetup() {
   let h = '<div class="row" style="margin:6px 0"><button class="btn grow" data-act="slipScan">📷 伝票番号を読む</button><button class="btn" data-act="slipPanelToggle">＋ 伝票を取り込む</button><button class="btn" data-act="slipReload">更新</button></div>';
+  if (S.pick) return renderPick();
   if (S.slipPanel) h += renderSlipPanel();
   if (!S.cfg.gas) return h + noConfigHint();
   if (S.slips === null) return h + hint('読み込み中…');
-  const todo = S.slips.filter((s) => s.status === '未検品' || s.status === '検品中'), done = S.slips.filter((s) => s.status === '検品済').length;
-  if (!todo.length) h += hint('検品する（未検品の）伝票はありません。「＋ 伝票を取り込む」でCSVから作るか、手入力で作ってください。');
-  todo.forEach((s) => {
-    h += '<div class="item"><div class="row"><div class="grow"><div style="font-weight:700">' + esc(s.no) + '</div><div class="sub">' + s.lines + '品 ' + s.qty + '点　取込 ' + esc(String(s.importedAt).slice(5, 16)) + ' <span class="tag">' + esc(s.source || '') + '</span> <span class="tag ' + (STATUS_TAG[s.status] || '') + '">' + esc(s.status) + (s.inspected ? ' ' + s.inspected + '/' + s.qty : '') + '</span>' +
-      (s.tracking ? ' <span class="tag loc">📦 ' + esc(s.tracking) + '</span>' : '') + '</div></div>' +
-      '<div style="display:flex;flex-direction:column;gap:6px"><button class="btn sm pri" data-act="slipStart" data-no="' + esc(s.no) + '">' + (s.status === '検品中' ? '続きを検品' : '検品開始') + '</button>' +
-      '<button class="btn sm" data-act="slipTrack" data-no="' + esc(s.no) + '">送り状</button><button class="btn sm" data-act="slipVoid" data-no="' + esc(s.no) + '">キャンセル</button></div></div></div>';
+  const groups = slipGroups();
+  groups.forEach((g) => {
+    const insp = g.slips.filter((x) => x.status === '検品済').length;
+    h += '<div class="card"><div class="name">出荷作業中：' + esc(g.name) + '</div><div class="sub">伝票 ' + g.slips.length + ' 件　検品済 ' + insp + ' / ' + g.slips.length + '（作業中の伝票はキャンセルできません）</div>' +
+      '<div class="row wrap" style="margin-top:8px"><button class="btn pri grow" data-act="pickOpen" data-group="' + esc(g.name) + '">📋 ピッキング（リスト）</button><button class="btn" data-act="grpRelease" data-group="' + esc(g.name) + '">出荷待ちに戻す</button></div></div>';
+    g.slips.forEach((x) => { h += slipRowHtml(x, {}); });
   });
+  const waiting = S.slips.filter((x) => !x.group && (x.status === '未検品' || x.status === '検品中'));
+  const done = S.slips.filter((x) => !x.group && x.status === '検品済').length;
+  if (!waiting.length && !groups.length) h += hint('検品する（未検品の）伝票はありません。「＋ 伝票を取り込む」でCSVから作るか、手入力で作ってください。');
+  if (waiting.length) {
+    const n = waiting.filter((x) => S.slSel[x.no]).length;
+    h += '<div class="card"><div class="name">出荷待ち（' + waiting.length + '件）</div><div class="sub">まとめて出荷する伝票を選び、「出荷作業を開始」を押すと、作業グループにまとまります（ピッキングリストはアプリの画面で見ます。紙は出しません）。作業を始めなくても、1件ずつ検品はできます。</div>' +
+      '<div class="row wrap" style="margin-top:8px"><button class="btn sm" data-act="slipSelAll">全部選ぶ</button><button class="btn sm" data-act="slipSelNone">選択をはずす</button>' +
+      '<input type="text" id="grpName" data-in="grpName" placeholder="グループ名（省略可）" value="' + esc(S.grpName) + '" autocomplete="off" style="flex:1;min-width:120px"></div>' +
+      '<button class="btn pri block" style="margin-top:8px" data-act="grpStart" ' + ((!n || S.sending) ? 'disabled' : '') + '>出荷作業を開始（' + n + '件）</button></div>';
+    waiting.forEach((x) => { h += slipRowHtml(x, { check: true, voidable: true }); });
+  }
   if (done) h += '<div class="sub" style="margin-top:6px">検品済みの伝票 ' + done + ' 件は「出荷」タブで出荷できます。</div>';
   return h;
+}
+/* ---------- 出荷作業グループ（出荷作業中）とトータルピッキング ---------- */
+async function grpStart() {
+  const nos = Object.keys(S.slSel).filter((k) => S.slSel[k]);
+  if (!nos.length || S.sending) { if (!nos.length) toast('伝票を選んでください', 'warn'); return; }
+  S.sending = true; renderPanel();
+  try {
+    const r = await api('slipGroupStart', { nos: nos, name: S.grpName.trim() });
+    toast('出荷作業を開始しました：' + r.group + '（' + r.started + '伝票）', 'ok');
+    S.slSel = {}; S.grpName = ''; beep('ok');
+    S.sending = false; await refreshSlips();
+  } catch (e) {
+    beep('ng');
+    const list = (e instanceof ApiError && e.data && (e.data.errors || (e.data.extra && e.data.extra.errors))) || [];
+    toast(errText(e) + (list.length ? '：' + list.slice(0, 3).map((x) => x.no + ' ' + x.reason).join(' / ') : ''), 'bad');
+  } finally { S.sending = false; renderPanel(); }
+}
+async function grpRelease(group) {
+  if (!(await confirmDialog({ title: '出荷待ちに戻す', ok: '戻す', body: '<div style="font-weight:700">' + esc(group) + '</div><div class="sub">作業グループを解除します。検品の途中経過は消えません。出荷済みの伝票はそのままです。</div>' }))) return;
+  try { const r = await api('slipGroupRelease', { group: group }); toast('出荷待ちに戻しました（' + r.released + '件）', 'ok'); if (S.pick && S.pick.group === group) { S.pick = null; store.set('wms.pick', null); } await refreshSlips(); }
+  catch (e) { toast(errText(e), 'bad'); }
+}
+async function pickOpen(group) {
+  try {
+    const r = await api('slipPicking', { group: group });
+    const sv = store.get('wms.pick', null);
+    const saved = sv && sv.group === group && sv.picked ? sv.picked : {};
+    S.pick = { group: group, slips: r.slips, lines: r.lines.map((l) => Object.assign({}, l, { picked: Math.min(l.qty, saved[l.jan] || 0) })) };
+    renderPanel();
+  } catch (e) { toast(errText(e), 'bad'); }
+}
+function pickPersist() {
+  const p = S.pick; if (!p) { store.set('wms.pick', null); return; }
+  const picked = {}; p.lines.forEach((l) => { if (l.picked) picked[l.jan] = l.picked; });
+  store.set('wms.pick', { group: p.group, picked: picked });
+}
+function pickTotals() {
+  let need = 0, done = 0;
+  S.pick.lines.forEach((l) => { need += l.qty; done += l.picked; });
+  return { need: need, done: done };
+}
+function renderPick() {
+  const p = S.pick, t = pickTotals();
+  let h = '<div class="card"><div class="name">トータルピッキング：' + esc(p.group) + '</div><div class="sub">伝票 ' + p.slips.length + ' 件・' + p.lines.length + '品　<b>' + t.done + ' / ' + t.need + ' 点</b>　ロケーション順です。バーコードを読むか、＋−で数えます。このリストの進み具合は端末にだけ残り、サーバーには保存しません。</div></div>';
+  p.lines.forEach((l) => {
+    const ok = l.picked === l.qty;
+    h += '<div class="item' + (ok ? ' match' : '') + '"><div class="row"><div class="grow"><div style="font-weight:700">' + esc(l.name) + '</div><div class="sub">' + esc(l.jan) + ' <span class="tag loc">' + esc(l.location || '未設定') + '</span>' + (l.stock < l.qty ? ' <span class="tag bad">在庫' + l.stock + '</span>' : '') + (l.orders > 1 ? ' <span class="tag">' + l.orders + '伝票分</span>' : '') + '</div></div>' +
+      '<div style="display:flex;align-items:center;gap:6px"><button class="btn sm" data-act="pickAdj" data-jan="' + esc(l.jan) + '" data-d="-1" aria-label="減らす">−</button><b style="min-width:54px;text-align:center">' + l.picked + ' / ' + l.qty + (ok ? ' ✔' : '') + '</b><button class="btn sm" data-act="pickAdj" data-jan="' + esc(l.jan) + '" data-d="1" aria-label="増やす">＋</button></div></div></div>';
+  });
+  h += '<div class="row" style="margin-top:10px"><button class="btn" data-act="pickClose">閉じる</button><button class="btn pri grow" data-act="pickDone">ピッキング完了</button></div>' +
+    '<div class="sub" style="margin-top:6px">完了したら、各伝票を「検品開始」で検品してください（検品は伝票ごとに、商品と送り状をスキャンします）。</div>';
+  return h;
+}
+function pickScan(item) {
+  const p = S.pick; if (!p) return;
+  const l = p.lines.find((x) => Logic.janKey(x.jan) === Logic.janKey(item.jan));
+  if (!l) { beep('ng'); toast('この作業グループのリストにない商品です：' + item.name, 'warn'); return; }
+  if (l.picked >= l.qty) { beep('ng'); toast('必要数に達しています：' + item.name + '（' + l.qty + '点）', 'warn'); return; }
+  l.picked += 1; pickPersist(); beep('ok'); renderPanel();
 }
 function renderSlipPanel() {
   const f = S.slipForm, r = S.slipRes;
@@ -1863,6 +1953,18 @@ const Actions = {
   /* 検品 */
   inspTab(d) { S.inspTab = d.t; store.set('wms.inspTab', d.t); renderPanel(); },
   slipReload() { S.slips = null; refreshSlips(); },
+  grpStart() { grpStart(); },
+  grpRelease(d) { grpRelease(d.group); },
+  pickOpen(d) { pickOpen(d.group); },
+  pickAdj(d) { const l = S.pick && S.pick.lines.find((x) => x.jan === d.jan); if (!l) return; l.picked = Math.max(0, Math.min(l.qty, l.picked + Number(d.d))); pickPersist(); renderPanel(); },
+  pickClose() { S.pick = null; renderPanel(); },
+  async pickDone() {
+    const t = pickTotals();
+    if (t.done < t.need && !(await confirmDialog({ title: 'ピッキング完了', ok: '完了にする', body: '<div>まだ ' + (t.need - t.done) + ' 点が数えられていません。</div><div class="sub">このまま完了にして、検品に進みますか？</div>' }))) return;
+    toast('ピッキング完了。続けて、各伝票を検品してください', 'ok'); S.pick = null; pickPersist(); renderPanel();
+  },
+  slipSelAll() { (S.slips || []).forEach((x) => { if (!x.group && (x.status === '未検品' || x.status === '検品中')) S.slSel[x.no] = true; }); renderPanel(); },
+  slipSelNone() { S.slSel = {}; renderPanel(); },
   slipPanelToggle() { S.slipPanel = !S.slipPanel; S.unres = null; renderPanel(); },
   slipScan() { slipScanStart(); },
   slipCsvFile() { $('#slFile').click(); },
@@ -1921,6 +2023,8 @@ const Actions = {
 };
 
 const Inputs = {
+  slSel(el) { S.slSel[el.dataset.no] = el.checked; renderPanel(); },
+  grpName(el) { S.grpName = el.value; },
   spotLoc(el) { if (S.spot) { S.spot.location = el.value; renderPanel(); } },
   spotQty(el) { if (S.spot) { S.spot.qty = el.value === '' ? 0 : Math.floor(Number(el.value)) || 0; renderPanel(); } },
   issueQty(el) { if (S.issue) { S.issue.qty = el.value === '' ? 0 : Math.floor(Number(el.value)) || 0; renderPanel(); } },

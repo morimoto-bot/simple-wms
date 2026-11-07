@@ -37,7 +37,7 @@ var CONFIG = {
   MAX_IMPORT_ROWS: 5000,
   LOCK_WAIT_MS: 20000,
   TIMEZONE: 'Asia/Tokyo',
-  VERSION: '0.4.1',
+  VERSION: '0.5.0',
   APP_NAME: 'simple-wms'
 };
 
@@ -49,7 +49,7 @@ var SHEET_DEF = {
   STOCKTAKE:  { headers: ['日時', '棚卸名', 'JAN', '商品名', '帳簿在庫', '実績数', '差異'],           textCols: [1, 2, 3, 4] },
   PLAN:       { headers: ['予定ID', '予定名', '仕入先名', '状態', '作成日時', '完了日時', 'メモ'],     textCols: [1, 2, 3, 4, 5, 6, 7] },
   PLAN_LINES: { headers: ['予定ID', 'JAN', '商品名', '予定数', '検品済数', '入荷済数', '状態', '備考'], textCols: [1, 2, 3, 7, 8] },
-  SLIP:       { headers: ['伝票ID', '伝票番号', '出所', '状態', '作成日時', '検品日時', '出荷日時', 'メモ', '送り状番号', '配送業者'], textCols: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] },
+  SLIP:       { headers: ['伝票ID', '伝票番号', '出所', '状態', '作成日時', '検品日時', '出荷日時', 'メモ', '送り状番号', '配送業者', '作業グループ', '作業開始日時'], textCols: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] },
   SLIP_LINES: { headers: ['伝票ID', 'JAN', '商品名', '数量', '検品済数', '元コード'],                 textCols: [1, 2, 3, 6] },
   SKU:        { headers: ['SKU', 'JAN', 'EC側の名称'],                                              textCols: [1, 2, 3] }
 };
@@ -83,7 +83,7 @@ function setupSheets() {
 
 var READ_ACTIONS = {
   masterGet: masterGet_, masterList: masterList_, stocktakePreview: stocktakePreview_,
-  planList: planList_, planGet: planGet_, slipList: slipList_, slipGet: slipGet_,
+  planList: planList_, planGet: planGet_, slipList: slipList_, slipGet: slipGet_, slipPicking: slipPicking_,
   skuList: skuList_, historyList: historyList_, exportData: exportData_
 };
 var WRITE_ACTIONS = {
@@ -105,6 +105,8 @@ var WRITE_ACTIONS = {
   slipInspect: slipInspect_,
   slipShip: slipShip_,
   slipVoid: slipVoid_,
+  slipGroupStart: slipGroupStart_,
+  slipGroupRelease: slipGroupRelease_,
   slipTracking: slipTracking_,
   slipTrackingImport: slipTrackingImport_,
   inspectionSave: inspectionSave_,
@@ -1308,10 +1310,10 @@ function slipKey_(no) { return nfkc_(no).replace(/\s+/g, ' ').replace(/^\s+|\s+$
 function slipNo_(no) { return nfkc_(no).replace(/\s+/g, ' ').replace(/^\s+|\s+$/g, ''); }
 
 function loadSlips_() {
-  var H = loadTable_('SLIP', 10, function (v) {
+  var H = loadTable_('SLIP', 12, function (v) {
     var id = str_(v[0]);
     if (!id) return null;
-    return { id: id, no: str_(v[1]), source: str_(v[2]), status: str_(v[3]), created: str_(v[4]), inspected: str_(v[5]), shipped: str_(v[6]), memo: str_(v[7]), tracking: str_(v[8]), carrier: str_(v[9]) };
+    return { id: id, no: str_(v[1]), source: str_(v[2]), status: str_(v[3]), created: str_(v[4]), inspected: str_(v[5]), shipped: str_(v[6]), memo: str_(v[7]), tracking: str_(v[8]), carrier: str_(v[9]), group: str_(v[10]), groupAt: str_(v[11]) };
   });
   var L = loadTable_('SLIP_LINES', 6, function (v) {
     var id = str_(v[0]);
@@ -1325,8 +1327,8 @@ function loadSlips_() {
 }
 function commitSlips_(s) {
   commitTable_(s.H,
-    function (r) { return [r.id, r.no, r.source, r.status, r.created, r.inspected, r.shipped, r.memo, r.tracking, r.carrier]; },
-    4, function (r) { return [r.status, r.created, r.inspected, r.shipped, r.memo, r.tracking, r.carrier]; });
+    function (r) { return [r.id, r.no, r.source, r.status, r.created, r.inspected, r.shipped, r.memo, r.tracking, r.carrier, r.group || '', r.groupAt || '']; },
+    4, function (r) { return [r.status, r.created, r.inspected, r.shipped, r.memo, r.tracking, r.carrier, r.group || '', r.groupAt || '']; });
   commitTable_(s.L,
     function (r) { return [r.sid, r.jan, r.pname, r.qty, r.done, r.code]; },
     3, function (r) { return [r.pname, r.qty, r.done, r.code]; });
@@ -1343,10 +1345,11 @@ function slipSummary_(s, h) {
   var qty = 0, done = 0;
   lines.forEach(function (l) { qty += l.qty; done += l.done; });
   return { id: h.id, no: h.no, status: h.status, source: h.source, lines: lines.length, qty: qty, inspected: done,
-    importedAt: h.created, inspectedAt: h.inspected, shippedAt: h.shipped, memo: h.memo, tracking: h.tracking, carrier: h.carrier };
+    importedAt: h.created, inspectedAt: h.inspected, shippedAt: h.shipped, memo: h.memo, tracking: h.tracking, carrier: h.carrier,
+    group: h.group || '', groupAt: h.groupAt || '' };
 }
 function addSlip_(s, no, lines, source, memo, ts) {
-  var h = addTableRow_(s.H, { id: nextId_(s.H, 'SH-', 'id'), no: no, source: source, status: '未検品', created: ts, inspected: '', shipped: '', memo: memo || '', tracking: '', carrier: '' });
+  var h = addTableRow_(s.H, { id: nextId_(s.H, 'SH-', 'id'), no: no, source: source, status: '未検品', created: ts, inspected: '', shipped: '', memo: memo || '', tracking: '', carrier: '', group: '', groupAt: '' });
   s.byId[h.id] = h; s.byKey[slipKey_(no)] = h; s.linesOf[h.id] = [];
   lines.forEach(function (l) {
     s.linesOf[h.id].push(addTableRow_(s.L, { sid: h.id, jan: l.row.jan, pname: l.row.name, qty: l.qty, done: 0, code: l.code }));
@@ -1566,8 +1569,89 @@ function slipVoid_(req) {
   var s = loadSlips_();
   var h = findSlip_(s, req);
   if (h.status === '出荷済') throw new AppError('bad_state', '出荷済みの伝票はキャンセルできません: ' + h.no, { status: h.status });
+  if (h.group && h.status !== 'キャンセル') throw new AppError('grouped', '出荷作業中（' + h.group + '）の伝票です。先に「出荷待ちに戻す」で作業グループから外してください: ' + h.no, { group: h.group });
   if (h.status !== 'キャンセル') { h.status = 'キャンセル'; h.dirty = true; commitSlips_(s); }
   return { ok: true, slip: slipSummary_(s, h) };
+}
+
+/* ---------- 出荷作業グループ（LOGILESSの「出荷作業中」）とトータルピッキング ---------- */
+
+/** 出荷待ちの伝票をまとめて「出荷作業中」にする（作業グループに入れる）。中にキャンセルできない伝票があれば何もしない */
+function slipGroupStart_(req) {
+  var s = loadSlips_();
+  var nos = Array.isArray(req.nos) ? req.nos : [];
+  if (!nos.length) throw new AppError('bad_request', '伝票を選んでください');
+  if (nos.length > 200) throw new AppError('bad_request', '一度にまとめられるのは200伝票までです');
+  var ts = now_();
+  var name = cleanMemo_(req.name).slice(0, 30);
+  if (!name) name = 'G-' + ts.replace(/[^0-9]/g, '').slice(0, 12);
+  var hs = [], errors = [], seen = {};
+  nos.forEach(function (no) {
+    var h = s.byKey[slipKey_(no)];
+    if (!h) { errors.push({ no: str_(no), reason: '伝票が見つかりません' }); return; }
+    if (seen[h.id]) return;
+    seen[h.id] = true;
+    if (h.status === '出荷済' || h.status === 'キャンセル') { errors.push({ no: h.no, reason: h.status + 'のため出荷作業に入れられません' }); return; }
+    if (h.group && h.group !== name) { errors.push({ no: h.no, reason: 'すでに別の作業グループ（' + h.group + '）に入っています' }); return; }
+    hs.push(h);
+  });
+  if (errors.length) throw new AppError('bad_state', '出荷作業を開始できない伝票があります（' + errors.length + '件）。何も変更していません', { errors: errors });
+  hs.forEach(function (h) { if (h.group !== name) { h.group = name; h.groupAt = ts; h.dirty = true; } });
+  commitSlips_(s);
+  return { ok: true, group: name, started: hs.length, slips: hs.map(function (h) { return slipSummary_(s, h); }) };
+}
+
+/** 作業グループから外して「出荷待ち」に戻す（検品の途中経過は消さない。出荷済みは対象外） */
+function slipGroupRelease_(req) {
+  var s = loadSlips_();
+  var targets = [];
+  if (req.group) {
+    var g = str_(req.group);
+    s.H.rows.forEach(function (h) { if (h.group === g) targets.push(h); });
+  } else {
+    var nos = Array.isArray(req.nos) ? req.nos : [];
+    nos.forEach(function (no) { var h = s.byKey[slipKey_(no)]; if (h && h.group) targets.push(h); });
+  }
+  targets = targets.filter(function (h) { return h.status !== '出荷済'; });
+  if (!targets.length) throw new AppError('not_found', '出荷作業中の伝票がありません');
+  targets.forEach(function (h) { h.group = ''; h.groupAt = ''; h.dirty = true; });
+  commitSlips_(s);
+  return { ok: true, released: targets.length };
+}
+
+/** トータルピッキングリスト（紙は出さない。画面表示用）: 対象伝票の明細を商品ごとに合計し、ロケーション順に並べる */
+function slipPicking_(req) {
+  var s = loadSlips_();
+  var m = loadMaster_();
+  var hs = [];
+  if (req.group) {
+    var g = str_(req.group);
+    s.H.rows.forEach(function (h) { if (h.group === g) hs.push(h); });
+  } else {
+    (Array.isArray(req.nos) ? req.nos : []).forEach(function (no) { var h = s.byKey[slipKey_(no)]; if (h) hs.push(h); });
+  }
+  hs = hs.filter(function (h) { return h.status !== '出荷済' && h.status !== 'キャンセル'; });
+  if (!hs.length) throw new AppError('not_found', 'ピッキングする伝票がありません（出荷済み・キャンセルは除きます）');
+  var by = {}, order = [];
+  hs.forEach(function (h) {
+    (s.linesOf[h.id] || []).forEach(function (l) {
+      var k = janKey_(l.jan);
+      if (!by[k]) {
+        var mr = m.byKey[k];
+        by[k] = { jan: l.jan, name: mr ? mr.name : l.pname, location: mr ? mr.location : '', stock: mr ? mr.stock : 0, qty: 0, orders: 0 };
+        order.push(k);
+      }
+      by[k].qty += l.qty; by[k].orders += 1;
+    });
+  });
+  var lines = order.map(function (k) { return by[k]; });
+  lines.sort(function (a, b) {
+    var la = a.location || '\uffff', lb = b.location || '\uffff';
+    if (la !== lb) return la < lb ? -1 : 1;
+    return a.jan < b.jan ? -1 : (a.jan > b.jan ? 1 : 0);
+  });
+  var total = 0; lines.forEach(function (l) { total += l.qty; });
+  return { ok: true, group: str_(req.group), slips: hs.map(function (h) { return slipSummary_(s, h); }), lines: lines, totalQty: total };
 }
 
 /* ---------- 送り状番号（伝票への紐づけ） ---------- */
