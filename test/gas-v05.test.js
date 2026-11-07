@@ -177,3 +177,27 @@ test('グループ名は改行が空白になり30文字まで。数式として
   assert.equal(sheetRow(env, 'S1')[10], r.group);
   assert.equal(typeof sheetRow(env, 'S1')[10], 'string');
 });
+
+test('シート名の変更: 古い「商品対応表」があれば、中身を残したまま「対応表」に名前だけ変わる。二重には作られない', () => {
+  const env = createEnv();
+  const old = env.ss.insertSheet('商品対応表');
+  old.getRange(1, 1, 1, 3).setValues([['SKU', 'JAN', 'EC側の名称']]);
+  old.getRange(2, 1, 1, 3).setNumberFormat('@');   // 実際のシートは、GASが文字列形式で作ったもの
+  old.getRange(2, 1, 1, 3).setValues([['EC-OLD', J1, '旧名のデータ']]);
+  env.post('masterUpsert', { jan: J1, name: '商品A', location: 'A-01' });
+  const r = env.get('skuList');
+  assert.equal(r.ok, true);
+  assert.equal(env.sheet('商品対応表'), null, '古い名前のシートは残らない');
+  assert.ok(env.sheet('対応表'), '新しい名前のシートがある');
+  assert.deepEqual(env.sheet('対応表').dump()[1].slice(0, 2), ['EC-OLD', J1], '中身はそのまま');
+  assert.equal(Array.from(env.ss.sheets.keys()).filter((n) => /対応表/.test(n)).length, 1);
+  env.post('masterUpsert', { jan: J1, name: '商品A', location: 'A-01', sku: 'EC-NEW' });
+  assert.ok(env.sheet('対応表').dump().some((x) => x[0] === 'EC-NEW'));
+});
+
+test('新しい環境では「対応表」シートが最初から作られる', () => {
+  const env = createEnv();
+  env.get('skuList');
+  assert.ok(env.sheet('対応表'));
+  assert.equal(env.sheet('商品対応表'), null);
+});

@@ -9,7 +9,7 @@ const J2 = withCheck('490123456789');
 const J3 = withCheck('450000000001');
 const J4 = withCheck('490000000002');
 const UPCA = withCheck('01234567890');
-const MASTER = '商品マスタ', IO = '入出荷履歴', INSP = '検品履歴', PLAN = '入荷予定', PLINE = '入荷予定明細', SLIP = '出荷伝票', SLINE = '出荷伝票明細', SKUS = '商品対応表';
+const MASTER = '商品マスタ', IO = '入出荷履歴', INSP = '検品履歴', PLAN = '入荷予定', PLINE = '入荷予定明細', SLIP = '出荷伝票', SLINE = '出荷伝票明細', SKUS = '対応表';
 const ALL = [MASTER, IO, INSP, '棚卸履歴', PLAN, PLINE, SLIP, SLINE, SKUS];
 
 function setup() {
@@ -72,7 +72,7 @@ test('masterImport: 6列目のSKUを取り込む。既存商品のSKUは空欄�
   assert.equal(env.get('masterGet', { jan: J1 }).item.sku, 'S3');
 });
 
-test('SKUは商品対応表シートに保存され、商品マスタの列は5列のまま。外した/空にしたSKUは表から消える', () => {
+test('SKUは対応表シートに保存され、商品マスタの列は5列のまま。外した/空にしたSKUは表から消える', () => {
   const env = setup();
   assert.deepEqual(env.sheet(MASTER).dump()[0], ['JAN', '商品名', '価格', '現在庫', 'ロケーション']);
   assert.deepEqual(env.sheet(SKUS).dump()[0], ['SKU', 'JAN', 'EC側の名称']);

@@ -23,8 +23,10 @@ var CONFIG = {
     PLAN_LINES: '入荷予定明細',
     SLIP: '出荷伝票',
     SLIP_LINES: '出荷伝票明細',
-    SKU: '商品対応表'
+    SKU: '対応表'
   },
+  // 以前の名前（シートの名前を変えた時に、古い名前のシートがあれば、中身を残したまま新しい名前にする）
+  LEGACY_SHEETS: { SKU: ['商品対応表'] },
   // true にすると、在庫を超える出荷（マイナス在庫）を許す
   ALLOW_NEGATIVE_STOCK: false,
   // 合言葉（APP_TOKEN）の最低文字数。短いと拒否する（/exec のURLを知れば誰でも叩けるため、実質の防御は合言葉だけ）
@@ -37,7 +39,7 @@ var CONFIG = {
   MAX_IMPORT_ROWS: 5000,
   LOCK_WAIT_MS: 20000,
   TIMEZONE: 'Asia/Tokyo',
-  VERSION: '0.5.0',
+  VERSION: '0.5.1',
   APP_NAME: 'simple-wms'
 };
 
@@ -295,6 +297,13 @@ function sheet_(key) {
   var ss = ss_();
   var name = CONFIG.SHEETS[key];
   var sh = ss.getSheetByName(name);
+  if (!sh) {
+    var olds = (CONFIG.LEGACY_SHEETS && CONFIG.LEGACY_SHEETS[key]) || [];
+    for (var i = 0; i < olds.length && !sh; i++) {
+      var old = ss.getSheetByName(olds[i]);
+      if (old) { old.setName(name); sh = old; }
+    }
+  }
   if (!sh) sh = ss.insertSheet(name);
   if (sh.getLastRow() === 0) {
     sh.getRange(1, 1, 1, def.headers.length).setValues([def.headers]);
@@ -403,7 +412,7 @@ function commitMaster_(m) {
   if (m.skuDirty) { writeSkuSheet_(m); m.skuDirty = false; }
 }
 
-/* ----- 商品対応表（SKU↔JAN） ----- */
+/* ----- 対応表（SKU↔JAN） ----- */
 
 function loadSkuTable_(m) {
   var sh = sheet_('SKU');
@@ -1726,7 +1735,7 @@ function slipTrackingImport_(req) {
   return { ok: true, total: rows.length, updated: updated, unchanged: unchanged, skipped: errors.length, errors: errors };
 }
 
-/* ---------- 商品対応表の参照・削除 ---------- */
+/* ---------- 対応表の参照・削除 ---------- */
 
 function skuList_(req) {
   var m = loadMaster_();

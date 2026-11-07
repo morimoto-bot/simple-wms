@@ -71,6 +71,7 @@ class FakeSheet {
   }
   getRange(r, c, nr = 1, nc = 1) { return new FakeRange(this, r, c, nr, nc); }
   setFrozenRows(n) { this.frozen = n; }
+  setName(n) { const ss = this.ss; if (!ss) throw new Error('no spreadsheet'); if (ss.sheets.has(n)) throw new Error('同名のシートがあります: ' + n); ss.sheets.delete(this.name); this.name = n; ss.sheets.set(n, this); return this; }
   dump() {
     const last = this.getLastRow();
     let maxc = 0;
@@ -89,7 +90,7 @@ class FakeSheet {
 class FakeSpreadsheet {
   constructor() { this.sheets = new Map(); }
   getSheetByName(n) { return this.sheets.get(n) || null; }
-  insertSheet(n) { const s = new FakeSheet(n); this.sheets.set(n, s); return s; }
+  insertSheet(n) { const s = new FakeSheet(n); s.ss = this; this.sheets.set(n, s); return s; }
 }
 
 function createEnv(options = {}) {
