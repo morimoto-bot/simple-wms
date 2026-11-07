@@ -249,3 +249,17 @@ test('個人情報: 宛先の取り込みと出力は画面のメモリ上だけ
   assert.ok(cfgDef, '保存する設定の項目一覧がある');
   assert.ok(!/orders|text|res/.test(cfgDef[1]), '注文データは設定に含めない');
 });
+
+test('宛先の自動消去: 既定30分・設定で変えられる・時間が過ぎたら宛先とCSVの中身を消す', () => {
+  const ui = html.slice(html.indexOf('/* <label-ui> */'), html.indexOf('/* </label-ui> */'));
+  assert.match(ui, /ttl: 30/, '既定は30分');
+  assert.match(ui, /LBL_CFG_KEYS = \[[^\]]*'ttl'/, '時間は設定として保存する');
+  assert.match(ui, /setInterval\(lblTick, \d+\)/, '定期的に確かめる');
+  assert.match(ui, /visibilitychange/, '画面に戻った時にも確かめる');
+  const clear = ui.match(/function labelClear\(auto\) \{([\s\S]*?)\n\}/);
+  assert.ok(clear, 'labelClear がある');
+  for (const k of ['LBL.recs = null', 'LBL.orders = null', 'LBL.built = null', "LBL.paste = ''"]) assert.ok(clear[1].includes(k), k + ' を消す');
+  assert.match(ui, /if \(l !== null && l <= 0\) \{ labelClear\(true\)/, '時間が来たら自動で消す');
+  assert.match(ui, /data-in="lbTtl"/, '時間を変える入力欄がある');
+});
+

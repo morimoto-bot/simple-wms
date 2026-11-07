@@ -700,7 +700,7 @@ const Logic = (function () {
 /* =====================================================================
  * 画面
  * ===================================================================== */
-const VERSION = '0.6.0';
+const VERSION = '0.6.1';
 const $ = (s, r) => (r || document).querySelector(s);
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const pad = (n) => String(n).padStart(2, '0');
@@ -1944,17 +1944,17 @@ function adminEnter() {
 
 /* <label-ui> */
 /* ---------- 送り状発行用CSV（宛先は画面のメモリ上だけ。通信・保存はしない。保存するのは発送元・振り分け・列の割り当てだけ） ---------- */
-const LBL_CFG_KEYS = ['shipName', 'shipZip', 'shipAddr', 'shipPhone', 'routes', 'fallback', 'onlyOpen', 'maps'];
+const LBL_CFG_KEYS = ['shipName', 'shipZip', 'shipAddr', 'shipPhone', 'routes', 'fallback', 'onlyOpen', 'maps', 'ttl'];
 const LBL = {
-  cfg: Object.assign({ shipName: '', shipZip: '', shipAddr: '', shipPhone: '', routes: Logic.DEFAULT_ROUTES, fallback: '', onlyOpen: true, maps: {} }, store.get('wms.label', {})),
-  paste: '', recs: null, map: null, sig: '', orders: null, built: null, parseErr: []
+  cfg: Object.assign({ shipName: '', shipZip: '', shipAddr: '', shipPhone: '', routes: Logic.DEFAULT_ROUTES, fallback: '', onlyOpen: true, maps: {}, ttl: 30 }, store.get('wms.label', {})),
+  paste: '', loadedAt: 0, recs: null, map: null, sig: '', orders: null, built: null, parseErr: []
 };
 function lblSave() { const o = {}; LBL_CFG_KEYS.forEach((k) => { o[k] = LBL.cfg[k]; }); store.set('wms.label', o); }
 /** CSVの文字列を読み込む（行は画面のメモリにだけ置く）。列の割り当ては、同じ見出しの並びで前に決めたものがあればそれを使う */
 function lblLoad(text) {
   const recs = Logic.parseCsvRecords(text);
   if (recs.length < 2) { LBL.recs = null; LBL.map = null; LBL.parseErr = ['データの行がありません（1行目は見出し行にしてください）']; return false; }
-  LBL.recs = recs; LBL.sig = Logic.headSignature(recs[0]);
+  LBL.recs = recs; LBL.loadedAt = Date.now(); LBL.sig = Logic.headSignature(recs[0]);
   LBL.map = Logic.fixMapping((LBL.cfg.maps || {})[LBL.sig], recs[0]);
   LBL.known = !!(LBL.cfg.maps || {})[LBL.sig];
   LBL.orders = null; LBL.built = null; LBL.parseErr = [];
@@ -1986,7 +1986,21 @@ function labelRun() {
   LBL.built.skipped = LBL.orders.length - orders.length; LBL.built.routeErr = pr.errors;
   renderPanel();
 }
-function labelClear() { LBL.paste = ''; LBL.recs = null; LBL.map = null; LBL.orders = null; LBL.built = null; LBL.parseErr = []; renderPanel(); toast('読み込んだ宛先のデータを消しました', 'ok'); }
+function labelClear(auto) {
+  LBL.paste = ''; LBL.recs = null; LBL.map = null; LBL.orders = null; LBL.built = null; LBL.parseErr = []; LBL.loadedAt = 0;
+  if (S.mode === 'admin' && S.admin.tab === 'label') renderPanel();
+  toast(auto ? '決めた時間が過ぎたので、宛先のデータを自動で消しました' : '読み込んだ宛先のデータを消しました', auto ? 'warn' : 'ok');
+}
+/** 読み込んだ宛先は、設定の時間（分）が過ぎると自動で消す。0なら自動では消さない */
+function lblLeftMs() { const m = Number(LBL.cfg.ttl); return LBL.recs && m > 0 ? LBL.loadedAt + m * 60000 - Date.now() : null; }
+function lblLeftText() { const l = lblLeftMs(); return l === null ? '' : 'あと' + (l >= 60000 ? Math.ceil(l / 60000) + '分' : Math.max(1, Math.ceil(l / 1000)) + '秒') + 'で自動で消えます'; }
+function lblTick() {
+  const l = lblLeftMs();
+  if (l !== null && l <= 0) { labelClear(true); return; }
+  const el = document.getElementById('lblLeft'); if (el) el.textContent = lblLeftText();
+}
+setInterval(lblTick, 5000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) lblTick(); });
 function labelDownload(i, j) {
   const f = LBL.built && LBL.built.sets[i] && LBL.built.sets[i].files[j]; if (!f) return;
   const blob = new Blob(['﻿' + Logic.toCsv(f.header, f.rows)], { type: 'text/csv;charset=utf-8' });
@@ -2007,10 +2021,10 @@ function renderLabelMap() {
 function renderAdminLabel() {
   const c = LBL.cfg, b = LBL.built;
   let h = hint('ECサイトや受注管理から出した<b>注文CSV</b>（どのサービスのものでも可。1行目は見出し行）を読み込むと、<b>配送方法</b>で出力先を振り分け、ヤマト（B2）・佐川（e飛伝III）・日本郵便（ゆうプリR）・クリックポストの<b>取り込み用CSV</b>を作ります。CSVの列は、自動で当てはめ、「列の割り当て」で直せます。<br>' +
-    '<b>宛先は、この画面の中だけで扱います</b>。GAS・スプレッドシート・この端末の保存領域には書きません（画面を閉じる、または「データを消す」で消えます）。送り状の発行は各社のソフトで行い、できた番号は、検品の「送り状番号を取り込む」で戻します。');
+    '<b>宛先は、この画面の中だけで扱います</b>。GAS・スプレッドシート・この端末の保存領域には書きません。<b>決めた時間（既定は30分）で自動で消え</b>、画面を閉じる、または「今すぐ消す」でも消えます。送り状の発行は各社のソフトで行い、できた番号は、検品の「送り状番号を取り込む」で戻します。');
   h += '<div class="card"><div class="row wrap"><button class="btn sm" data-act="labelFile">ファイルを選ぶ</button><button class="btn pri grow" data-act="labelRun">振り分けてCSVを作る</button></div>' +
     '<textarea data-in="lbPaste" style="min-height:70px;margin-top:6px" placeholder="または、注文CSVの中身をここに貼り付け">' + esc(LBL.paste) + '</textarea>' +
-    (LBL.recs ? '<div class="sub" style="margin-top:6px">読み込み済み: ' + (LBL.recs.length - 1) + '行（宛先を含む。使い終わったら消してください）　<button class="btn sm" data-act="labelClear">データを消す</button></div>' : '') + '</div>';
+    (LBL.recs ? '<div class="sub" style="margin-top:6px">読み込み済み: ' + (LBL.recs.length - 1) + '行（宛先を含む）　<button class="btn sm" data-act="labelClear">今すぐ消す</button><div id="lblLeft" style="margin-top:4px;font-weight:700">' + esc(lblLeftText() || '自動では消えません（設定で時間を決められます）') + '</div></div>' : '') + '</div>';
   LBL.parseErr.forEach((m) => { h += '<div class="banner warn">' + esc(m) + '</div>'; });
   if (LBL.recs) h += renderLabelMap();
   h += '<details class="card"' + (c.shipName ? '' : ' open') + '><summary><b>設定</b>（発送元・振り分け）</summary>' +
@@ -2023,6 +2037,8 @@ function renderAdminLabel() {
     '<div class="sub">キーワードは、CSVの「配送方法」の列に含まれる文字。出力先は、ヤマト・佐川・日本郵便・クリックポストのどれか。</div>' +
     '<label class="f">どれにも合わない注文（配送方法の列が無い時も）の出力先</label><select data-in="lbFallback"><option value="">出力しない</option>' +
     ['clickpost', 'yamato', 'sagawa', 'yupack'].map((k) => '<option value="' + k + '"' + (c.fallback === k ? ' selected' : '') + '>' + esc(Logic.CARRIER_LABEL[k]) + '</option>').join('') + '</select>' +
+    '<label class="f">宛先を自動で消すまでの時間（分。0なら自動では消さない）</label><input type="number" data-in="lbTtl" min="0" max="1440" step="1" inputmode="numeric" value="' + esc(String(c.ttl)) + '">' +
+    '<div class="sub">読み込んでから、この時間が過ぎると、画面のメモリにある宛先と、作ったCSVの中身を消します（もう一度、ファイルを読み込めば使えます）。</div>' +
     '<label style="display:flex;align-items:center;gap:6px;margin-top:8px"><input type="checkbox" class="chk" data-in="lbOnlyOpen"' + (c.onlyOpen ? ' checked' : '') + '> WMSで出荷済み・キャンセルの伝票は除く（二重発行の防止）</label>' +
     '<div class="sub">この設定は、この端末のブラウザにだけ保存します（宛先は含みません）。</div></details>';
   if (!b) return h;
@@ -2383,6 +2399,7 @@ const Inputs = {
   lbFallback(el) { LBL.cfg.fallback = el.value; lblSave(); },
   lbMap(el) { if (LBL.map) { LBL.map[el.dataset.f] = Number(el.value); lblSaveMap(); } },
   lbOnlyOpen(el) { LBL.cfg.onlyOpen = el.checked; lblSave(); },
+  lbTtl(el) { const n = Math.floor(Number(el.value)); LBL.cfg.ttl = n >= 0 && n <= 1440 ? n : 30; lblSave(); lblTick(); },
   slSel(el) { S.slSel[el.dataset.no] = el.checked; renderPanel(); },
   grpName(el) { S.grpName = el.value; },
   spotLoc(el) { if (S.spot) { S.spot.location = el.value; renderPanel(); } },
