@@ -503,6 +503,8 @@ const Logic = (function () {
     { key: 'addr1', label: 'お届け先の住所1', aliases: ['Shipping Address1', 'お届け先住所1', 'お届け先住所', 'お届け先の住所1', '配送先住所1', '配送先住所', '送付先住所1', '送付先住所', 'ship-address-1', '住所1', '住所'] },
     { key: 'addr2', label: 'お届け先の住所2（建物名など）', aliases: ['Shipping Address2', 'お届け先住所2', 'お届け先の住所2', '配送先住所2', '送付先住所2', 'ship-address-2', '住所2'] },
     { key: 'phone', label: 'お届け先の電話番号', aliases: ['Shipping Phone', 'お届け先電話番号', 'お届け先の電話番号', '配送先電話番号', '送付先電話番号', 'ship-phone-number', '電話番号', 'Phone'] },
+    { key: 'sku', label: '商品のSKU／JAN（伝票を作る時に使う）', aliases: ['Lineitem sku', 'SKU', '商品コード', '商品番号', '品番', 'JAN', 'JANコード'] },
+    { key: 'qty', label: '数量（伝票を作る時に使う）', aliases: ['Lineitem quantity', '数量', '個数', '注文数', 'quantity'] },
     { key: 'item', label: '商品名（品名）', aliases: ['Lineitem name', '商品名', '品名', '品名1', 'product-name'] },
     { key: 'date', label: 'お届け希望日', aliases: ['お届け希望日', '配送希望日', '配達希望日', 'お届け日指定', '配送日指定', '希望日'] },
     { key: 'time', label: 'お届け希望時間帯', aliases: ['お届け希望時間帯', '配送希望時間帯', '配達希望時間帯', 'お届け時間帯', '配送時間帯', '時間帯指定', '時間帯'] }
@@ -556,6 +558,25 @@ const Logic = (function () {
       splitPref(o);
     });
     return { orders: orders, errors: miss.length ? ['列が割り当てられていません: ' + miss.join('・') + '（宛先が空になります）'] : [], mapping: col };
+  }
+  /** 注文CSVの行から、伝票の取り込み用CSV（伝票番号, SKUまたはJAN, 数量）を作る。宛先は含めない。足りない列があれば missing に入れる */
+  function slipCsvFromRecords(recs, map) {
+    if (!recs || recs.length < 2) return { text: '', rows: 0, missing: ['データ行'] };
+    const col = fixMapping(map, recs[0]);
+    const missing = [['no', '注文番号'], ['sku', '商品のSKU／JAN'], ['qty', '数量']].filter(function (x) { return col[x[0]] < 0; }).map(function (x) { return x[1]; });
+    if (missing.length) return { text: '', rows: 0, missing: missing };
+    const q = function (v) { const t = String(v == null ? '' : v).replace(/[\r\n]+/g, ' ').trim(); return /[",]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
+    const out = ['伝票番号,SKUまたはJAN,数量'];
+    let n = 0, last = '';
+    recs.slice(1).forEach(function (r) {
+      const no = String(r[col.no] == null ? '' : r[col.no]).trim() || last;
+      const code = String(r[col.sku] == null ? '' : r[col.sku]).trim().replace(/^'/, '');
+      const qty = nfkc(r[col.qty] == null ? '' : r[col.qty]).replace(/\s/g, '');
+      if (!no || (!code && !qty)) return;
+      last = no; n++;
+      out.push([q(no), q(code), q(qty)].join(','));
+    });
+    return { text: out.join('\r\n'), rows: n, missing: [] };
   }
   /** CSVの文字列から注文を作る（map を省くと、自動で当てた割り当てを使う） */
   function parseShipOrders(text, map) {
@@ -692,7 +713,7 @@ const Logic = (function () {
 
   return { normTracking, toCsv, parseCodeQtyText, rcvStatus, rcvSummary, shipPreview, reasonOk, nfkc, janDigits, janKey, checkDigitOk, validateJan, normLocation, yen, speechText, splitCells, parsePlanText,
     planFromMaster, decodeBytes, parseFragment, gasUrlProblem, inspStatus, inspSummary, stkView, filterStock,
-    parseCsvRecords, normProvince, cleanZip, cleanPhone, ORDER_FIELDS, guessMapping, fixMapping, headSignature, ordersFromRecords, parseShipOrders, orderProblems, parseRoutes, routeOrder, carrierKey, timeCode, slashDate, buildCarrierCsv, buildLabelSet, CARRIER_LABEL, DEFAULT_ROUTES,
+    parseCsvRecords, normProvince, cleanZip, cleanPhone, ORDER_FIELDS, guessMapping, fixMapping, headSignature, ordersFromRecords, slipCsvFromRecords, parseShipOrders, orderProblems, parseRoutes, routeOrder, carrierKey, timeCode, slashDate, buildCarrierCsv, buildLabelSet, CARRIER_LABEL, DEFAULT_ROUTES,
     rgbaToGray, rotate90Gray, cropRegion, createDecoder };
 })();
 /* </logic> */
@@ -700,7 +721,7 @@ const Logic = (function () {
 /* =====================================================================
  * 画面
  * ===================================================================== */
-const VERSION = '0.7.0';
+const VERSION = '0.7.1';
 const $ = (s, r) => (r || document).querySelector(s);
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const pad = (n) => String(n).padStart(2, '0');
@@ -2020,6 +2041,30 @@ async function piiPurgeRun(dry) {
   } catch (e) { toast(errText(e), 'bad'); }
   finally { S.sending = false; renderPanel(); }
 }
+/** 1つの注文CSVから、出荷伝票を作り、宛先も保存する（伝票ができた注文だけ宛先を保存する） */
+async function labelImportAll() {
+  if (!S.cfg.gas) { toast('設定（⚙）でGASのURLと合言葉を入れてください', 'bad'); return; }
+  if (!LBL.recs) { toast('先に、注文CSVを読み込んでください', 'warn'); return; }
+  const slipCsv = Logic.slipCsvFromRecords(LBL.recs, LBL.map);
+  if (slipCsv.missing.length) { toast('「列の割り当て」で、' + slipCsv.missing.join('・') + 'を選んでください', 'warn'); return; }
+  const res = Logic.ordersFromRecords(LBL.recs, LBL.map);
+  if (!res.orders.length) { LBL.parseErr = res.errors; renderPanel(); return; }
+  const days = LBL.pii ? LBL.pii.days : 30;
+  const ok = await confirmDialog({ title: '伝票を作って、宛先も保存', ok: '作って保存する',
+    body: esc(String(res.orders.length)) + '注文（' + esc(String(slipCsv.rows)) + '行）から、出荷伝票を<b>作り</b>、宛先（氏名・郵便番号・住所・電話）も<b>保存</b>します。すでにある伝票は作り直さず、宛先だけ保存します。SKU／JANが商品マスタ・対応表にない注文は、伝票も宛先も保存しません。出荷済み・キャンセルから' + esc(piiDaysText(days)) + '。' });
+  if (!ok) return;
+  const items = res.orders.map((o) => ({ no: o.no, name: o.toName, zip: o.zip, address: [o.province, o.city, o.addr1, o.addr2].filter(Boolean).join(''), phone: o.phone }));
+  S.sending = true; renderPanel();
+  try {
+    const sr = await api('slipImport', { text: slipCsv.text });
+    let saved = 0, skipped = [];
+    for (let i = 0; i < items.length; i += 200) { const r = await api('slipAddress', { items: items.slice(i, i + 200) }); saved += r.saved; skipped = skipped.concat(r.skipped); }
+    LBL.saveRes = { saved: saved, skipped: skipped, slip: { created: sr.created, duplicates: sr.duplicates.length, errors: sr.errors, unresolved: sr.unresolved } };
+    toast('伝票 ' + sr.created + '件を作り、宛先 ' + saved + '件を保存しました', sr.created || saved ? 'ok' : 'warn');
+    await refreshSlipsQuiet(); await loadPii();
+  } catch (e) { toast(errText(e), 'bad'); }
+  finally { S.sending = false; renderPanel(); }
+}
 async function labelSaveAddr() {
   if (!S.cfg.gas) { toast('設定（⚙）でGASのURLと合言葉を入れてください', 'bad'); return; }
   if (!LBL.orders || !LBL.orders.length) { toast('先に、注文CSVを読み込んで「振り分けてCSVを作る」を押してください', 'warn'); return; }
@@ -2053,9 +2098,17 @@ function renderPiiCard() {
 function renderSaveAddrCard() {
   if (!S.cfg.gas || !LBL.recs) return '';
   const d = LBL.pii, r = LBL.saveRes;
-  let h = '<div class="card"><b>宛先を伝票に保存（任意）</b><div class="sub">CS対応のために残したい時だけ使います。同じ伝票番号の出荷伝票へ、氏名・郵便番号・住所・電話を保存します（' + esc(piiDaysText(d ? d.days : 30)) + '）。' + (LBL.orders ? '' : '先に「振り分けてCSVを作る」を押してください。') + '</div>' +
-    '<button class="btn sm pri" style="margin-top:6px" data-act="labelSaveAddr" ' + (S.sending || !LBL.orders ? 'disabled' : '') + '>宛先を伝票に保存</button>';
-  if (r) h += '<div class="sub" style="margin-top:6px">保存 ' + r.saved + '件／保存しなかった ' + r.skipped.length + '件' + (r.skipped.length ? '<br>' + r.skipped.slice(0, 8).map((x) => esc(x.no) + '：' + esc(x.reason)).join('<br>') + (r.skipped.length > 8 ? '<br>…ほか' + (r.skipped.length - 8) + '件' : '') : '') + '</div>';
+  let h = '<div class="card"><b>伝票を作る・宛先を保存（任意）</b><div class="sub">この注文CSVから、出荷伝票を作り、CS対応のために宛先（氏名・郵便番号・住所・電話）も保存できます（' + esc(piiDaysText(d ? d.days : 30)) + '）。伝票の取り込みに使う列は、「列の割り当て」の「商品のSKU／JAN」「数量」です。</div>' +
+    '<div class="row wrap" style="margin-top:6px"><button class="btn sm pri grow" data-act="labelImportAll" ' + (S.sending ? 'disabled' : '') + '>伝票を作って、宛先も保存</button>' +
+    '<button class="btn sm" data-act="labelSaveAddr" ' + (S.sending || !LBL.orders ? 'disabled' : '') + '>宛先だけ保存</button></div>' +
+    '<div class="sub" style="margin-top:4px">「宛先だけ保存」は、伝票がすでにある時に使います（先に「振り分けてCSVを作る」を押します）。</div>';
+  if (r) {
+    h += '<div class="sub" style="margin-top:6px">' + (r.slip ? '伝票: 作成 ' + r.slip.created + '件／すでにあった ' + r.slip.duplicates + '件／作れなかった ' + r.slip.errors.length + '件<br>' : '') + '宛先: 保存 ' + r.saved + '件／保存しなかった ' + r.skipped.length + '件';
+    if (r.slip && r.slip.errors.length) h += '<br>作れなかった伝票: ' + r.slip.errors.slice(0, 6).map((x) => esc(x.no || x.line + '行目') + '（' + esc(x.reason) + '）').join('、') + (r.slip.errors.length > 6 ? ' ほか' + (r.slip.errors.length - 6) + '件' : '');
+    if (r.slip && r.slip.unresolved.length) h += '<br>解決できないコード: ' + r.slip.unresolved.slice(0, 8).map((x) => esc(x.code)).join('、') + '（商品マスタか対応表に登録してから、もう一度）';
+    if (r.skipped.length) h += '<br>' + r.skipped.slice(0, 8).map((x) => esc(x.no) + '：' + esc(x.reason)).join('<br>') + (r.skipped.length > 8 ? '<br>…ほか' + (r.skipped.length - 8) + '件' : '');
+    h += '</div>';
+  }
   return h + '</div>';
 }
 function labelDownload(i, j) {
@@ -2348,6 +2401,7 @@ const Actions = {
   labelRun() { labelRun(); },
   labelClear() { labelClear(); },
   labelSaveAddr() { labelSaveAddr(); },
+  labelImportAll() { labelImportAll(); },
   piiPreview() { piiPurgeRun(true); },
   piiRun() { piiPurgeRun(false); },
   labelDl(d) { labelDownload(Number(d.i), Number(d.j)); },

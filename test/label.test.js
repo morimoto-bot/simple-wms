@@ -9,6 +9,7 @@ const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const m = html.match(/\/\* <logic> \*\/([\s\S]*?)\/\* <\/logic> \*\//);
 assert.ok(m, 'logic区間が見つからない');
 const L = new Function(m[1] + '; return Logic;')();
+function Logic_slipCsvSource() { const mm = m[1].match(/function slipCsvFromRecords[\s\S]*?\n  \}\n/); return mm ? mm[0].replace(/missing\.push[^\n]*/g, '') : 'NOT FOUND 宛先'; }
 
 // Shopify標準エクスポートの形: 宛先は注文の先頭行だけ。2行目以降は商品行のみ。住所の中に改行があるケースも含める
 const SHOP = [
@@ -242,12 +243,16 @@ test('個人情報: 宛先を送るのは「宛先を伝票に保存」だけ。
   const ui = html.slice(s, e);
   assert.ok(!/fetch\(|XMLHttpRequest|sendBeacon/.test(ui), '外へ直接送らない');
   const calls = [...ui.matchAll(/\bapi\('([A-Za-z]+)'/g)].map((x) => x[1]);
-  assert.deepEqual([...new Set(calls)].sort(), ['piiPurge', 'piiSettings', 'piiStatus', 'slipAddress'], '通信するのは、保存・保持期間・削除の4つだけ');
+  assert.deepEqual([...new Set(calls)].sort(), ['piiPurge', 'piiSettings', 'piiStatus', 'slipAddress', 'slipImport'], '通信するのは、伝票の取り込み・宛先の保存・保持期間・削除だけ');
   // 宛先を送る slipAddress は、確認ダイアログを経てからだけ
   const save = ui.match(/async function labelSaveAddr\(\) \{([\s\S]*?)\n\}/);
   assert.ok(save, 'labelSaveAddr がある');
   assert.ok(save[1].indexOf('confirmDialog') >= 0 && save[1].indexOf('confirmDialog') < save[1].indexOf("api('slipAddress'"), '保存の前に確認する');
-  assert.equal([...ui.matchAll(/api\('slipAddress'/g)].length, 1, '宛先を送る場所は1か所');
+  assert.equal([...ui.matchAll(/api\('slipAddress'/g)].length, 2, '宛先を送る場所は2か所（一度に／宛先だけ）');
+  const all = ui.match(/async function labelImportAll\(\) \{([\s\S]*?)\n\}/);
+  assert.ok(all, 'labelImportAll がある');
+  assert.ok(all[1].indexOf('confirmDialog') >= 0 && all[1].indexOf('confirmDialog') < all[1].indexOf("api('slipImport'") && all[1].indexOf("api('slipImport'") < all[1].indexOf("api('slipAddress'"), '確認 → 伝票の取り込み → 宛先の保存、の順');
+  assert.ok(!/宛先|toName|address|phone|zip/.test(Logic_slipCsvSource()), '伝票の取り込み用CSVに宛先を含めない');
   // 振り分け・CSV作成・読み込み（labelRun/lblLoad/labelDownload）は通信しない
   for (const fn of ['labelRun', 'lblLoad', 'labelDownload']) {
     const m = ui.match(new RegExp('function ' + fn + '\\([^)]*\\) \\{([\\s\\S]*?)\\n\\}'));
@@ -271,3 +276,29 @@ test('保持期間・削除の画面: 保持日数の選択、削除の対象を
   assert.ok(!/setInterval|ttl|lblTick/.test(ui), '分単位のタイマーは持たない');
   assert.match(ui, /d\.options/, '選べる日数はGASの値（7・14・21・30・60・90・0）を使う');
 });
+
+test('1つの注文CSVから伝票の取り込み用CSVを作る（Shopify形式）。宛先は含まれない。複数商品・引用符・先頭の\'', () => {
+  const csv = [
+    'Name,Email,Shipping Name,Shipping Zip,Shipping Address1,Shipping Phone,Lineitem name,Lineitem quantity,Lineitem sku',
+    '#1001,a@example.com,山田 太郎,\'1000001,千代田1-1,0312345678,りんご,2,SKU-A',
+    '#1001,,,,,,"みかん, 小",1,SKU-B',
+    '#1002,b@example.com,佐藤 花子,5300001,梅田1-1,0611112222,ぶどう,３,\'4901777300446'
+  ].join('\n');
+  const recs = L.parseCsvRecords(csv);
+  const r = L.slipCsvFromRecords(recs, L.guessMapping(recs[0]));
+  assert.deepEqual(r.missing, []);
+  assert.equal(r.rows, 3);
+  assert.equal(r.text, ['伝票番号,SKUまたはJAN,数量', '#1001,SKU-A,2', '#1001,SKU-B,1', '#1002,4901777300446,3'].join('\r\n'));
+  assert.ok(!/山田|1000001|千代田|@example|0312345678/.test(r.text), '宛先・メール・電話は入らない');
+});
+
+test('伝票を作る列が割り当てられていなければ、足りない列を知らせる', () => {
+  const recs = L.parseCsvRecords('注文番号,氏名,郵便番号,住所\nA-1,山田,1000001,東京都千代田区');
+  const r = L.slipCsvFromRecords(recs, L.guessMapping(recs[0]));
+  assert.deepEqual(r.missing, ['商品のSKU／JAN', '数量']);
+  assert.equal(r.text, '');
+  const recs2 = L.parseCsvRecords('注文番号,商品コード,数量\nA-1,X,1');
+  const m2 = L.guessMapping(recs2[0]);
+  assert.equal(L.slipCsvFromRecords(recs2, m2).rows, 1, '日本語の列名でも自動で当たる');
+});
+
