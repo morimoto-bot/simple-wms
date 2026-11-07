@@ -448,8 +448,8 @@ const Logic = (function () {
   function reasonOk(r) { const t = String(r == null ? '' : r).replace(/\s+/g, ' ').trim(); return t.length >= 1 && t.length <= 100; }
 
   /* ---------- 送り状発行用CSV（宛先は画面のメモリ上だけで扱う。GAS・シート・履歴・端末の保存領域には書かない） ----------
-   * 手本: Shopify送り状拡張（ヤマトB2=42列／佐川e飛伝III=74列／ゆうプリR=105列／クリックポストまとめ申込=8列）。
-   * 注文CSV（Shopifyの標準エクスポート）→ 配送方法で出力先を振り分け → 各社の取り込みCSVを作る。 */
+   * 注文CSVはどのECのものでもよい（列は割り当てで決める）。手本: Shopify送り状拡張（ヤマトB2=42列／佐川e飛伝III=74列／ゆうプリR=105列／クリックポストまとめ申込=8列）。
+   * 注文CSV → 配送方法で出力先を振り分け → 各社の取り込みCSVを作る。 */
 
   /** CSV全体を「行×セル」にする。引用符の中の改行・"" に対応。区切りはカンマ（1行目にカンマが無くタブがあればタブ） */
   function parseCsvRecords(text) {
@@ -492,48 +492,75 @@ const Logic = (function () {
     return d;
   }
 
-  const ORDER_COLS = {
-    no: ['Name', '注文番号', '伝票番号', 'お客様管理番号', '受注コード'],
-    method: ['Shipping Method', '配送方法', '配送方法名'],
-    toName: ['Shipping Name', 'お届け先氏名', 'お届け先名', '配送先氏名', '氏名'],
-    zip: ['Shipping Zip', 'お届け先郵便番号', '郵便番号'],
-    province: ['Shipping Province Name', 'Shipping Province', 'お届け先都道府県', '都道府県'],
-    city: ['Shipping City', 'お届け先市区町村', '市区町村'],
-    addr1: ['Shipping Address1', 'お届け先住所1', 'お届け先住所', '住所1', '住所'],
-    addr2: ['Shipping Address2', 'お届け先住所2', '住所2'],
-    phone: ['Shipping Phone', 'お届け先電話番号', '電話番号', 'Phone'],
-    item: ['Lineitem name', '商品名', '品名'],
-    attrs: ['Note Attributes']
-  };
+  /** 注文CSVの列。どのECのCSVでも使えるよう、列は割り当てで決める（自動で当てる時の列名の候補は aliases。Shopifyの標準の列名も含む） */
+  const ORDER_FIELDS = [
+    { key: 'no', label: '注文番号（必須）', req: true, aliases: ['Name', '注文番号', '伝票番号', 'お客様管理番号', '受注コード', '受注番号', 'オーダーID', 'order-id', 'order id', 'order_id', 'order number'] },
+    { key: 'method', label: '配送方法', aliases: ['Shipping Method', '配送方法', '配送方法名', '配送種別', '配送会社', '配送業者', '運送会社', 'ship-service-level', 'shipping method'] },
+    { key: 'toName', label: 'お届け先の氏名', aliases: ['Shipping Name', 'お届け先氏名', 'お届け先名', 'お届け先の氏名', '配送先氏名', '送付先氏名', '送付先名', 'recipient-name', 'ship-name', '氏名'] },
+    { key: 'zip', label: 'お届け先の郵便番号', aliases: ['Shipping Zip', 'お届け先郵便番号', 'お届け先の郵便番号', '配送先郵便番号', '送付先郵便番号', 'ship-postal-code', '郵便番号'] },
+    { key: 'province', label: 'お届け先の都道府県', aliases: ['Shipping Province Name', 'Shipping Province', 'お届け先都道府県', 'お届け先の都道府県', '配送先都道府県', '送付先都道府県', 'ship-state', '都道府県'] },
+    { key: 'city', label: 'お届け先の市区町村', aliases: ['Shipping City', 'お届け先市区町村', 'お届け先の市区町村', '配送先市区町村', '送付先市区町村', 'ship-city', '市区町村'] },
+    { key: 'addr1', label: 'お届け先の住所1', aliases: ['Shipping Address1', 'お届け先住所1', 'お届け先住所', 'お届け先の住所1', '配送先住所1', '配送先住所', '送付先住所1', '送付先住所', 'ship-address-1', '住所1', '住所'] },
+    { key: 'addr2', label: 'お届け先の住所2（建物名など）', aliases: ['Shipping Address2', 'お届け先住所2', 'お届け先の住所2', '配送先住所2', '送付先住所2', 'ship-address-2', '住所2'] },
+    { key: 'phone', label: 'お届け先の電話番号', aliases: ['Shipping Phone', 'お届け先電話番号', 'お届け先の電話番号', '配送先電話番号', '送付先電話番号', 'ship-phone-number', '電話番号', 'Phone'] },
+    { key: 'item', label: '商品名（品名）', aliases: ['Lineitem name', '商品名', '品名', '品名1', 'product-name'] },
+    { key: 'date', label: 'お届け希望日', aliases: ['お届け希望日', '配送希望日', '配達希望日', 'お届け日指定', '配送日指定', '希望日'] },
+    { key: 'time', label: 'お届け希望時間帯', aliases: ['お届け希望時間帯', '配送希望時間帯', '配達希望時間帯', 'お届け時間帯', '配送時間帯', '時間帯指定', '時間帯'] }
+  ];
   function pickCol(head, names) {
     const hs = head.map(function (h) { return nfkc(h).trim().toLowerCase(); });
     for (let n = 0; n < names.length; n++) { const i = hs.indexOf(names[n].toLowerCase()); if (i >= 0) return i; }
     return -1;
   }
+  /** 見出し行から、列の割り当てを自動で当てる（見つからない項目は -1） */
+  function guessMapping(head) {
+    const m = {}; ORDER_FIELDS.forEach(function (f) { m[f.key] = pickCol(head, f.aliases); }); return m;
+  }
+  /** 割り当てが今の見出しに合うか（列数の範囲内か）を確かめて整える。合わない項目は -1 */
+  function fixMapping(map, head) {
+    const g = guessMapping(head), m = {};
+    ORDER_FIELDS.forEach(function (f) { const v = map && typeof map[f.key] === 'number' ? map[f.key] : g[f.key]; m[f.key] = v >= -1 && v < head.length ? v : g[f.key]; });
+    return m;
+  }
+  /** 見出しの並びを、割り当てを覚えるための印にする（見出しだけ。データは含まない） */
+  function headSignature(head) { return head.map(function (h) { return String(h).trim(); }).join('|').slice(0, 400); }
 
-  /** 注文CSV（Shopifyの標準エクスポート／日本語の列名）を、注文ごとに1件へまとめる。宛先は先頭の行だけにあるので、同じ注文番号の行を合わせる */
-  function parseShipOrders(text) {
-    const recs = parseCsvRecords(text);
-    if (recs.length < 2) return { orders: [], errors: ['データの行がありません'] };
-    const col = {}; Object.keys(ORDER_COLS).forEach(function (k) { col[k] = pickCol(recs[0], ORDER_COLS[k]); });
-    if (col.no < 0) return { orders: [], errors: ['注文番号の列（Name）が見つかりません。Shopifyの注文CSVをそのまま読み込んでください'] };
-    const miss = [['zip', '郵便番号'], ['addr1', '住所'], ['toName', '氏名']].filter(function (x) { return col[x[0]] < 0; }).map(function (x) { return x[1]; });
-    const by = {}; const orders = [];
+  /** 都道府県の列が無いCSV（住所が1列）のために、住所の先頭から都道府県を切り出す */
+  function splitPref(o) {
+    if (o.province) return;
+    const f = o.city ? 'city' : 'addr1', t = o[f];
+    for (let i = 0; i < PREF_JA.length; i++) if (t.indexOf(PREF_JA[i]) === 0) { o.province = PREF_JA[i]; o[f] = t.slice(PREF_JA[i].length); return; }
+  }
+
+  /** 行×セルと列の割り当てから、注文ごとに1件にまとめる。宛先は先頭の行だけにあることがあるので、同じ注文番号の行を合わせる */
+  function ordersFromRecords(recs, map) {
+    if (!recs || recs.length < 2) return { orders: [], errors: ['データの行がありません'], mapping: null };
+    const head = recs[0], col = fixMapping(map, head);
+    if (col.no < 0) return { orders: [], errors: ['「注文番号」の列が割り当てられていません。列の割り当てで選んでください'], mapping: col };
+    const miss = ORDER_FIELDS.filter(function (f) { return ['zip', 'addr1', 'toName'].indexOf(f.key) >= 0 && col[f.key] < 0; }).map(function (f) { return f.label.replace('お届け先の', ''); });
+    const keys = ORDER_FIELDS.map(function (f) { return f.key; }).filter(function (k) { return k !== 'no'; });
+    const by = {}, orders = [];
     recs.slice(1).forEach(function (r) {
       const get = function (k) { return col[k] >= 0 && r[col[k]] != null ? String(r[col[k]]).trim() : ''; };
       const no = get('no'); if (!no) return;
       let o = by[no];
-      if (!o) { o = by[no] = { no: no, method: '', toName: '', zip: '', province: '', city: '', addr1: '', addr2: '', phone: '', item: '', attrs: '' }; orders.push(o); }
-      ['method', 'toName', 'zip', 'province', 'city', 'addr1', 'addr2', 'phone', 'attrs', 'item'].forEach(function (k) { if (!o[k]) o[k] = get(k); });
+      if (!o) { o = by[no] = { no: no }; keys.forEach(function (k) { o[k] = ''; }); orders.push(o); }
+      keys.forEach(function (k) { if (!o[k]) o[k] = get(k); });
     });
     orders.forEach(function (o) {
       o.zip = cleanZip(o.zip); o.phone = cleanPhone(o.phone); o.province = normProvince(o.province);
       o.toName = o.toName.replace(/^'/, '');
       // セルの中の改行は、取り込みを壊すので取り除く（住所は詰め、氏名・品名は空白にする）
       ['city', 'addr1', 'addr2'].forEach(function (k) { o[k] = o[k].replace(/\s*[\r\n]+\s*/g, ''); });
-      ['toName', 'item', 'province', 'method'].forEach(function (k) { o[k] = o[k].replace(/\s*[\r\n]+\s*/g, ' '); });
+      ['toName', 'item', 'province', 'method', 'date', 'time'].forEach(function (k) { o[k] = o[k].replace(/\s*[\r\n]+\s*/g, ' '); });
+      splitPref(o);
     });
-    return { orders: orders, errors: miss.length ? ['列が見つかりません: ' + miss.join('・') + '（宛先が空になります）'] : [] };
+    return { orders: orders, errors: miss.length ? ['列が割り当てられていません: ' + miss.join('・') + '（宛先が空になります）'] : [], mapping: col };
+  }
+  /** CSVの文字列から注文を作る（map を省くと、自動で当てた割り当てを使う） */
+  function parseShipOrders(text, map) {
+    const recs = parseCsvRecords(text);
+    return ordersFromRecords(recs, map);
   }
 
   /** 宛先の不足（発行前に直す）。出力は止めず、一覧で知らせる */
@@ -574,17 +601,6 @@ const Logic = (function () {
     return '';
   }
 
-  /** お届け希望（Note Attributes は「キー: 値」の行） */
-  function noteAttr(o, key) {
-    if (!key) return '';
-    const k = nfkc(key).trim();
-    const lines = String(o.attrs || '').split(/\r\n|\r|\n/);
-    for (let i = 0; i < lines.length; i++) {
-      const j = lines[i].indexOf(':');
-      if (j > 0 && nfkc(lines[i].slice(0, j)).trim() === k) return lines[i].slice(j + 1).trim();
-    }
-    return '';
-  }
   const TIME_SLOTS = [['午前', '0812', '1', '01'], ['12-14', '1214', '2', '02'], ['14-16', '1416', '3', '03'], ['16-18', '1618', '4', '04'], ['18-20', '1820', '5', '05'], ['19-21', '1921', '6', '06']];
   /** 時間帯（午前中／14〜16時／14:00-16:00 など）を各社のコードにする。分からなければ空欄 */
   function timeCode(value, carrier) {
@@ -595,17 +611,22 @@ const Logic = (function () {
     const slot = TIME_SLOTS.filter(function (s) { return s[0] === key; })[0];
     return slot ? slot[{ yamato: 1, sagawa: 2, yupack: 3 }[carrier]] : '';
   }
-  function slashDate(v) { return String(v || '').trim().replace(/-/g, '/'); }
+  /** お届け希望日を YYYY/MM/DD にする（2026-11-10・2026年11月10日 なども可。読めなければそのまま） */
+  function slashDate(v) {
+    const t = nfkc(v).trim(); if (!t) return '';
+    const m = t.match(/^(\d{4})[-\/.年](\d{1,2})[-\/.月](\d{1,2})日?/);
+    return m ? m[1] + '/' + ('0' + m[2]).slice(-2) + '/' + ('0' + m[3]).slice(-2) : t.replace(/-/g, '/');
+  }
   function fullAddress(o) { return [o.province, o.city, o.addr1, o.addr2].filter(Boolean).join(''); }
   function itemName(o) { return o.item || '商品'; }
 
   /**
    * 1つの出力先ぶんのCSVを作る。戻り値: [{ name, header, rows }]（クリックポストは40件ごとに分割）
-   * ctx = { shipper: {name, postCode, address, phone}, dateKey, timeKey, today: 'YYYY/MM/DD', ymd: 'YYYYMMDD' }
+   * ctx = { shipper: {name, postCode, address, phone}, today: 'YYYY/MM/DD', ymd: 'YYYYMMDD' }
    */
   function buildCarrierCsv(carrier, orders, ctx) {
     const sh = ctx.shipper || {}, sAddr = sh.address || '', sZip = String(sh.postCode || '').replace(/[^0-9]/g, '');
-    const dt = function (o, c) { return [slashDate(noteAttr(o, ctx.dateKey)), timeCode(noteAttr(o, ctx.timeKey), c)]; };
+    const dt = function (o, c) { return [slashDate(o.date), timeCode(o.time, c)]; };
     let header, rows;
     if (carrier === 'yamato') {
       header = ['お客様管理番号', '送り状種類', 'クール区分', '伝票番号', '出荷予定日', 'お届け予定（指定）日', '配達時間帯', 'お届け先コード', 'お届け先電話番号', 'お届け先電話番号枝番', 'お届け先郵便番号', 'お届け先住所', 'お届け先住所（アパートマンション名）', 'お届け先会社・部門名1', 'お届け先会社・部門名2', 'お届け先名', 'お届け先名略称カナ', '敬称', 'ご依頼主コード', 'ご依頼主電話番号', 'ご依頼主電話番号枝番', 'ご依頼主郵便番号', 'ご依頼主住所', 'ご依頼主（アパートマンション名）', 'ご依頼主名', 'ご依頼主略称カナ', '品名コード1', '品名1', '品名コード2', '品名2', '荷扱い1', '荷扱い2', '記事', 'コレクト代金引換額（税込）', 'コレクト内消費税額等', '営業所止め', '営業所コード', '発行枚数', '個数口栓の印字', 'ご請求先顧客コード', 'ご請求先分類コード', '運賃管理番号'];
@@ -658,9 +679,9 @@ const Logic = (function () {
   }
 
   /** 注文を出力先ごとに分け、CSVを作る。未分類（どの設定にも合わない配送方法）は出力しない */
-  function buildLabelSet(orders, rules, ctx) {
+  function buildLabelSet(orders, rules, ctx, fallback) {
     const groups = { clickpost: [], yamato: [], sagawa: [], yupack: [] }, unrouted = [];
-    orders.forEach(function (o) { const c = routeOrder(o.method, rules); if (c) groups[c].push(o); else unrouted.push(o); });
+    orders.forEach(function (o) { const c = routeOrder(o.method, rules) || (CARRIER_LABEL[fallback] ? fallback : ''); if (c) groups[c].push(o); else unrouted.push(o); });
     const out = [];
     ['clickpost', 'yamato', 'sagawa', 'yupack'].forEach(function (c) {
       if (!groups[c].length) return;
@@ -671,7 +692,7 @@ const Logic = (function () {
 
   return { normTracking, toCsv, parseCodeQtyText, rcvStatus, rcvSummary, shipPreview, reasonOk, nfkc, janDigits, janKey, checkDigitOk, validateJan, normLocation, yen, speechText, splitCells, parsePlanText,
     planFromMaster, decodeBytes, parseFragment, gasUrlProblem, inspStatus, inspSummary, stkView, filterStock,
-    parseCsvRecords, normProvince, cleanZip, cleanPhone, parseShipOrders, orderProblems, parseRoutes, routeOrder, carrierKey, noteAttr, timeCode, buildCarrierCsv, buildLabelSet, CARRIER_LABEL, DEFAULT_ROUTES,
+    parseCsvRecords, normProvince, cleanZip, cleanPhone, ORDER_FIELDS, guessMapping, fixMapping, headSignature, ordersFromRecords, parseShipOrders, orderProblems, parseRoutes, routeOrder, carrierKey, timeCode, slashDate, buildCarrierCsv, buildLabelSet, CARRIER_LABEL, DEFAULT_ROUTES,
     rgbaToGray, rotate90Gray, cropRegion, createDecoder };
 })();
 /* </logic> */
@@ -1922,17 +1943,36 @@ function adminEnter() {
 }
 
 /* <label-ui> */
-/* ---------- 送り状発行用CSV（宛先は画面のメモリ上だけ。通信・保存はしない。保存するのは発送元などの設定だけ） ---------- */
-const LBL_CFG_KEYS = ['shipName', 'shipZip', 'shipAddr', 'shipPhone', 'routes', 'dateKey', 'timeKey', 'onlyOpen'];
+/* ---------- 送り状発行用CSV（宛先は画面のメモリ上だけ。通信・保存はしない。保存するのは発送元・振り分け・列の割り当てだけ） ---------- */
+const LBL_CFG_KEYS = ['shipName', 'shipZip', 'shipAddr', 'shipPhone', 'routes', 'fallback', 'onlyOpen', 'maps'];
 const LBL = {
-  cfg: Object.assign({ shipName: '', shipZip: '', shipAddr: '', shipPhone: '', routes: Logic.DEFAULT_ROUTES, dateKey: '', timeKey: '', onlyOpen: true }, store.get('wms.label', {})),
-  paste: '', orders: null, built: null, parseErr: []
+  cfg: Object.assign({ shipName: '', shipZip: '', shipAddr: '', shipPhone: '', routes: Logic.DEFAULT_ROUTES, fallback: '', onlyOpen: true, maps: {} }, store.get('wms.label', {})),
+  paste: '', recs: null, map: null, sig: '', orders: null, built: null, parseErr: []
 };
 function lblSave() { const o = {}; LBL_CFG_KEYS.forEach((k) => { o[k] = LBL.cfg[k]; }); store.set('wms.label', o); }
+/** CSVの文字列を読み込む（行は画面のメモリにだけ置く）。列の割り当ては、同じ見出しの並びで前に決めたものがあればそれを使う */
+function lblLoad(text) {
+  const recs = Logic.parseCsvRecords(text);
+  if (recs.length < 2) { LBL.recs = null; LBL.map = null; LBL.parseErr = ['データの行がありません（1行目は見出し行にしてください）']; return false; }
+  LBL.recs = recs; LBL.sig = Logic.headSignature(recs[0]);
+  LBL.map = Logic.fixMapping((LBL.cfg.maps || {})[LBL.sig], recs[0]);
+  LBL.known = !!(LBL.cfg.maps || {})[LBL.sig];
+  LBL.orders = null; LBL.built = null; LBL.parseErr = [];
+  return true;
+}
+function lblSaveMap() {
+  const m = Object.assign({}, LBL.cfg.maps || {}); delete m[LBL.sig]; m[LBL.sig] = LBL.map; // 新しいものを末尾に
+  const ks = Object.keys(m); while (ks.length > 10) delete m[ks.shift()];
+  LBL.cfg.maps = m; LBL.known = true; lblSave();
+}
 function labelRun() {
-  if (LBL.paste.trim()) { const r = Logic.parseShipOrders(LBL.paste); LBL.orders = r.orders; LBL.parseErr = r.errors; }
+  if (LBL.paste.trim()) { lblLoad(LBL.paste); }
   LBL.paste = '';
-  if (!LBL.orders || !LBL.orders.length) { LBL.built = null; if (!LBL.parseErr.length) toast('注文のデータがありません。CSVを読み込むか貼り付けてください', 'warn'); renderPanel(); return; }
+  if (!LBL.recs) { LBL.built = null; if (!LBL.parseErr.length) toast('注文のデータがありません。CSVを読み込むか貼り付けてください', 'warn'); renderPanel(); return; }
+  const res = Logic.ordersFromRecords(LBL.recs, LBL.map);
+  LBL.orders = res.orders; LBL.parseErr = res.errors;
+  if (!res.orders.length) { LBL.built = null; renderPanel(); return; }
+  lblSaveMap();
   const pr = Logic.parseRoutes(LBL.cfg.routes);
   let orders = LBL.orders;
   if (LBL.cfg.onlyOpen && S.slips) {
@@ -1940,13 +1980,13 @@ function labelRun() {
     orders = orders.filter((o) => !done[o.no]);
   }
   const d = new Date();
-  const ctx = { shipper: { name: LBL.cfg.shipName, postCode: LBL.cfg.shipZip, address: LBL.cfg.shipAddr, phone: LBL.cfg.shipPhone }, dateKey: LBL.cfg.dateKey, timeKey: LBL.cfg.timeKey,
+  const ctx = { shipper: { name: LBL.cfg.shipName, postCode: LBL.cfg.shipZip, address: LBL.cfg.shipAddr, phone: LBL.cfg.shipPhone },
     today: d.getFullYear() + '/' + pad(d.getMonth() + 1) + '/' + pad(d.getDate()), ymd: d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()) };
-  LBL.built = Logic.buildLabelSet(orders, pr.rules, ctx);
+  LBL.built = Logic.buildLabelSet(orders, pr.rules, ctx, LBL.cfg.fallback);
   LBL.built.skipped = LBL.orders.length - orders.length; LBL.built.routeErr = pr.errors;
   renderPanel();
 }
-function labelClear() { LBL.paste = ''; LBL.orders = null; LBL.built = null; LBL.parseErr = []; renderPanel(); toast('読み込んだ宛先のデータを消しました', 'ok'); }
+function labelClear() { LBL.paste = ''; LBL.recs = null; LBL.map = null; LBL.orders = null; LBL.built = null; LBL.parseErr = []; renderPanel(); toast('読み込んだ宛先のデータを消しました', 'ok'); }
 function labelDownload(i, j) {
   const f = LBL.built && LBL.built.sets[i] && LBL.built.sets[i].files[j]; if (!f) return;
   const blob = new Blob(['﻿' + Logic.toCsv(f.header, f.rows)], { type: 'text/csv;charset=utf-8' });
@@ -1956,24 +1996,33 @@ function labelDownload(i, j) {
   setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
   toast(f.name + '（' + f.rows.length + '件）を作りました', 'ok');
 }
+function renderLabelMap() {
+  const head = LBL.recs[0], m = LBL.map;
+  const lack = Logic.ORDER_FIELDS.some((f) => f.req && m[f.key] < 0) || ['zip', 'addr1', 'toName'].some((k) => m[k] < 0);
+  return '<details class="card"' + (lack || !LBL.known ? ' open' : '') + '><summary><b>列の割り当て</b>（CSVのどの列が何か。自動で当てたものを確かめてください）</summary>' +
+    Logic.ORDER_FIELDS.map((f) => '<label class="f">' + esc(f.label) + '</label><select data-in="lbMap" data-f="' + f.key + '"><option value="-1"' + (m[f.key] < 0 ? ' selected' : '') + '>（なし）</option>' +
+      head.map((h, i) => '<option value="' + i + '"' + (m[f.key] === i ? ' selected' : '') + '>' + (i + 1) + '列目: ' + esc(h) + '</option>').join('') + '</select>').join('') +
+    '<div class="sub">住所が1列だけのCSVは、「住所1」にその列を選び、都道府県は「（なし）」にしてください（先頭の都道府県を自動で切り出します）。割り当ては、同じ見出しのCSVで次回も使います（この端末にだけ保存。宛先は含みません）。変えたら、もう一度「振り分けてCSVを作る」を押してください。</div></details>';
+}
 function renderAdminLabel() {
   const c = LBL.cfg, b = LBL.built;
-  let h = hint('Shopifyの注文CSV（管理画面の「注文」→「エクスポート」）を読み込むと、<b>配送方法</b>で出力先を振り分け、ヤマト（B2）・佐川（e飛伝III）・日本郵便（ゆうプリR）・クリックポストの<b>取り込み用CSV</b>を作ります。<br>' +
+  let h = hint('ECサイトや受注管理から出した<b>注文CSV</b>（どのサービスのものでも可。1行目は見出し行）を読み込むと、<b>配送方法</b>で出力先を振り分け、ヤマト（B2）・佐川（e飛伝III）・日本郵便（ゆうプリR）・クリックポストの<b>取り込み用CSV</b>を作ります。CSVの列は、自動で当てはめ、「列の割り当て」で直せます。<br>' +
     '<b>宛先は、この画面の中だけで扱います</b>。GAS・スプレッドシート・この端末の保存領域には書きません（画面を閉じる、または「データを消す」で消えます）。送り状の発行は各社のソフトで行い、できた番号は、検品の「送り状番号を取り込む」で戻します。');
   h += '<div class="card"><div class="row wrap"><button class="btn sm" data-act="labelFile">ファイルを選ぶ</button><button class="btn pri grow" data-act="labelRun">振り分けてCSVを作る</button></div>' +
     '<textarea data-in="lbPaste" style="min-height:70px;margin-top:6px" placeholder="または、注文CSVの中身をここに貼り付け">' + esc(LBL.paste) + '</textarea>' +
-    (LBL.orders ? '<div class="sub" style="margin-top:6px">読み込み済み: ' + LBL.orders.length + '件（宛先を含む。使い終わったら消してください）　<button class="btn sm" data-act="labelClear">データを消す</button></div>' : '') + '</div>';
+    (LBL.recs ? '<div class="sub" style="margin-top:6px">読み込み済み: ' + (LBL.recs.length - 1) + '行（宛先を含む。使い終わったら消してください）　<button class="btn sm" data-act="labelClear">データを消す</button></div>' : '') + '</div>';
   LBL.parseErr.forEach((m) => { h += '<div class="banner warn">' + esc(m) + '</div>'; });
-  h += '<details class="card"' + (c.shipName ? '' : ' open') + '><summary><b>設定</b>（発送元・振り分け・お届け希望）</summary>' +
+  if (LBL.recs) h += renderLabelMap();
+  h += '<details class="card"' + (c.shipName ? '' : ' open') + '><summary><b>設定</b>（発送元・振り分け）</summary>' +
     '<label class="f">発送元の名前（ご依頼主）</label><input type="text" data-in="lbShipName" value="' + esc(c.shipName) + '" autocomplete="off">' +
     '<label class="f">発送元の郵便番号</label><input type="text" data-in="lbShipZip" value="' + esc(c.shipZip) + '" inputmode="numeric" autocomplete="off" placeholder="1500001">' +
     '<label class="f">発送元の住所</label><input type="text" data-in="lbShipAddr" value="' + esc(c.shipAddr) + '" autocomplete="off">' +
     '<label class="f">発送元の電話番号</label><input type="text" data-in="lbShipPhone" value="' + esc(c.shipPhone) + '" inputmode="tel" autocomplete="off">' +
     '<label class="f">配送方法の振り分け（1行1つ。<b>キーワード,出力先</b>。上から順に最初に合ったものを使う）</label>' +
     '<textarea data-in="lbRoutes" style="min-height:110px" spellcheck="false">' + esc(c.routes) + '</textarea>' +
-    '<div class="sub">キーワードは、Shopifyの配送方法の名前に含まれる文字。出力先は、ヤマト・佐川・日本郵便・クリックポストのどれか。どれにも合わない注文は出力しません。</div>' +
-    '<label class="f">お届け希望日のキー（任意。注文の「Note Attributes」の項目名）</label><input type="text" data-in="lbDateKey" value="' + esc(c.dateKey) + '" autocomplete="off" placeholder="例: 配送希望日">' +
-    '<label class="f">お届け時間帯のキー（任意）</label><input type="text" data-in="lbTimeKey" value="' + esc(c.timeKey) + '" autocomplete="off" placeholder="例: 時間帯">' +
+    '<div class="sub">キーワードは、CSVの「配送方法」の列に含まれる文字。出力先は、ヤマト・佐川・日本郵便・クリックポストのどれか。</div>' +
+    '<label class="f">どれにも合わない注文（配送方法の列が無い時も）の出力先</label><select data-in="lbFallback"><option value="">出力しない</option>' +
+    ['clickpost', 'yamato', 'sagawa', 'yupack'].map((k) => '<option value="' + k + '"' + (c.fallback === k ? ' selected' : '') + '>' + esc(Logic.CARRIER_LABEL[k]) + '</option>').join('') + '</select>' +
     '<label style="display:flex;align-items:center;gap:6px;margin-top:8px"><input type="checkbox" class="chk" data-in="lbOnlyOpen"' + (c.onlyOpen ? ' checked' : '') + '> WMSで出荷済み・キャンセルの伝票は除く（二重発行の防止）</label>' +
     '<div class="sub">この設定は、この端末のブラウザにだけ保存します（宛先は含みません）。</div></details>';
   if (!b) return h;
@@ -1988,7 +2037,7 @@ function renderAdminLabel() {
   });
   if (b.unrouted.length) {
     const cnt = {}; b.unrouted.forEach((o) => { const k = o.method || '（配送方法なし）'; cnt[k] = (cnt[k] || 0) + 1; });
-    h += '<div class="banner warn">振り分け先がない注文: ' + b.unrouted.length + '件（出力していません）<small>配送方法: ' + Object.keys(cnt).map((k) => esc(k) + '（' + cnt[k] + '）').join('、') + '<br>設定の「振り分け」に追加すると出力されます。</small></div>';
+    h += '<div class="banner warn">振り分け先がない注文: ' + b.unrouted.length + '件（出力していません）<small>配送方法: ' + Object.keys(cnt).map((k) => esc(k) + '（' + cnt[k] + '）').join('、') + '<br>設定の「振り分け」に追加するか、「どれにも合わない注文の出力先」を選ぶと出力されます。</small></div>';
   }
   return h;
 }
@@ -2331,8 +2380,8 @@ const Inputs = {
   lbShipAddr(el) { LBL.cfg.shipAddr = el.value; lblSave(); },
   lbShipPhone(el) { LBL.cfg.shipPhone = el.value; lblSave(); },
   lbRoutes(el) { LBL.cfg.routes = el.value; lblSave(); },
-  lbDateKey(el) { LBL.cfg.dateKey = el.value; lblSave(); },
-  lbTimeKey(el) { LBL.cfg.timeKey = el.value; lblSave(); },
+  lbFallback(el) { LBL.cfg.fallback = el.value; lblSave(); },
+  lbMap(el) { if (LBL.map) { LBL.map[el.dataset.f] = Number(el.value); lblSaveMap(); } },
   lbOnlyOpen(el) { LBL.cfg.onlyOpen = el.checked; lblSave(); },
   slSel(el) { S.slSel[el.dataset.no] = el.checked; renderPanel(); },
   grpName(el) { S.grpName = el.value; },

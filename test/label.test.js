@@ -12,8 +12,8 @@ const L = new Function(m[1] + '; return Logic;')();
 
 // Shopify標準エクスポートの形: 宛先は注文の先頭行だけ。2行目以降は商品行のみ。住所の中に改行があるケースも含める
 const SHOP = [
-  'Name,Email,Shipping Method,Shipping Name,Shipping Zip,Shipping Province,Shipping Province Name,Shipping City,Shipping Address1,Shipping Address2,Shipping Phone,Lineitem name,Lineitem quantity,Note Attributes',
-  '#1001,a@example.com,ヤマト宅急便,山田 太郎,\'1000001,JP-13,Tokyo,千代田区,千代田1-1,"ビル\n3F",+81 90-1234-5678,商品A,1,"配送希望日: 2026-11-10\n時間帯: 14〜16時"',
+  'Name,Email,Shipping Method,Shipping Name,Shipping Zip,Shipping Province,Shipping Province Name,Shipping City,Shipping Address1,Shipping Address2,Shipping Phone,Lineitem name,Lineitem quantity,配送希望日,配送希望時間帯',
+  '#1001,a@example.com,ヤマト宅急便,山田 太郎,\'1000001,JP-13,Tokyo,千代田区,千代田1-1,"ビル\n3F",+81 90-1234-5678,商品A,1,2026-11-10,14〜16時',
   '#1001,,,,,,,,,,,商品B,2,',
   '#1002,b@example.com,クリックポスト,佐藤 花子,5300001,JP-27,大阪府,大阪市北区,梅田1-1,,09012345678,商品C,1,',
   '#1003,c@example.com,佐川急便（飛脚宅配便）,鈴木 一郎,"060-0001",,北海道,札幌市中央区,北1条西1,,0112345678,商品D,1,',
@@ -87,7 +87,7 @@ test('parseRoutes / routeOrder: 上から順・キーワード空は全件・分
   assert.equal(L.parseRoutes('宅急便＝ヤマト').rules[0].carrier, 'yamato');
 });
 
-test('timeCode / noteAttr: 時間帯の表記ゆれ', () => {
+test('timeCode / slashDate: 時間帯・日付の表記ゆれ', () => {
   assert.equal(L.timeCode('午前中', 'yamato'), '0812');
   assert.equal(L.timeCode('午前中', 'sagawa'), '1');
   assert.equal(L.timeCode('14〜16時', 'yamato'), '1416');
@@ -95,14 +95,13 @@ test('timeCode / noteAttr: 時間帯の表記ゆれ', () => {
   assert.equal(L.timeCode('１９～２１時', 'sagawa'), '6');
   assert.equal(L.timeCode('夜', 'yamato'), '');
   assert.equal(L.timeCode('', 'yamato'), '');
-  const o = L.parseShipOrders(SHOP).orders[0];
-  assert.equal(L.noteAttr(o, '配送希望日'), '2026-11-10');
-  assert.equal(L.noteAttr(o, '時間帯'), '14〜16時');
-  assert.equal(L.noteAttr(o, ''), '');
-  assert.equal(L.noteAttr(o, 'なし'), '');
+  assert.equal(L.slashDate('2026-11-10'), '2026/11/10');
+  assert.equal(L.slashDate('2026年11月5日'), '2026/11/05');
+  assert.equal(L.slashDate('２０２６/１/２'), '2026/01/02');
+  assert.equal(L.slashDate(''), '');
 });
 
-const CTX = { shipper: { name: 'サンプル商店', postCode: '150-0001', address: '東京都渋谷区神宮前9-9-9ビル101', phone: '03-0000-0000' }, dateKey: '配送希望日', timeKey: '時間帯', today: '2026/11/07', ymd: '20261107' };
+const CTX = { shipper: { name: 'サンプル商店', postCode: '150-0001', address: '東京都渋谷区神宮前9-9-9ビル101', phone: '03-0000-0000' }, today: '2026/11/07', ymd: '20261107' };
 function build() {
   const orders = L.parseShipOrders(SHOP).orders;
   return L.buildLabelSet(orders, L.parseRoutes(L.DEFAULT_ROUTES).rules, CTX);
@@ -167,6 +166,74 @@ test('CSV化: 式として解釈される先頭文字は無害化される（toC
   const csv = L.toCsv(['a'], [['=1+1'], ['山田,太郎']]);
   assert.match(csv, /'=1\+1/);
   assert.match(csv, /"山田,太郎"/);
+});
+
+// ---- Shopify以外の注文CSV（列は割り当てで決める） ----
+const OTHER = [
+  '受注番号,配送会社,送付先氏名,送付先郵便番号,送付先住所,送付先電話番号,商品名,配送希望日,配送希望時間帯',
+  'R-1,ヤマト運輸,山田 太郎,100-0001,東京都千代田区千代田1-1 ビルA,03-1111-2222,りんご,2026年11月10日,午前中',
+  'R-2,佐川急便,佐藤 花子,530-0001,大阪府大阪市北区梅田1-1,06-1111-2222,みかん,,'
+].join('\n');
+
+test('Shopify以外: 住所が1列でも、都道府県を切り出して読める（自動の割り当て）', () => {
+  const r = L.parseShipOrders(OTHER);
+  assert.deepEqual(r.errors, []);
+  assert.equal(r.orders.length, 2);
+  const o = r.orders[0];
+  assert.equal(o.no, 'R-1'); assert.equal(o.method, 'ヤマト運輸'); assert.equal(o.toName, '山田 太郎');
+  assert.equal(o.zip, '1000001'); assert.equal(o.province, '東京都'); assert.equal(o.addr1, '千代田区千代田1-1 ビルA');
+  assert.equal(o.date, '2026年11月10日'); assert.equal(o.time, '午前中'); assert.equal(o.item, 'りんご');
+  assert.equal(r.orders[1].province, '大阪府');
+});
+
+test('Shopify以外: 出力にお届け希望日・時間帯・住所が入る', () => {
+  const orders = L.parseShipOrders(OTHER).orders;
+  const rules = L.parseRoutes(L.DEFAULT_ROUTES).rules;
+  const set = L.buildLabelSet(orders, rules, CTX);
+  const y = set.sets.find((s) => s.carrier === 'yamato').files[0].rows[0];
+  assert.equal(y[0], 'R-1'); assert.equal(y[5], '2026/11/10'); assert.equal(y[6], '0812'); assert.equal(y[10], '1000001');
+  assert.equal(y[11], '東京都千代田区千代田1-1 ビルA'.slice(0, 21)); assert.equal(y[27], 'りんご');
+  const s = set.sets.find((x) => x.carrier === 'sagawa').files[0].rows[0];
+  assert.equal(s[44], ''); assert.equal(s[45], '');
+});
+
+test('列の割り当て: 自動で当たらない列は、割り当てで直せる。範囲外の割り当ては自動に戻る', () => {
+  const csv = 'ID,宛先,〒,場所,TEL,運び方\n9,鈴木,1500001,東京都渋谷区神宮前1-1,0312345678,ヤマト';
+  const auto = L.parseShipOrders(csv);
+  assert.equal(auto.orders.length, 0, '注文番号の列が当たらなければ止まる');
+  assert.match(auto.errors[0], /注文番号/);
+  const head = L.parseCsvRecords(csv)[0];
+  const map = Object.assign(L.guessMapping(head), { no: 0, toName: 1, zip: 2, addr1: 3, phone: 4, method: 5 });
+  const r = L.parseShipOrders(csv, map);
+  assert.deepEqual(r.errors, []);
+  assert.equal(r.orders[0].no, '9'); assert.equal(r.orders[0].province, '東京都'); assert.equal(r.orders[0].method, 'ヤマト');
+  const bad = L.fixMapping({ no: 99, zip: -1 }, head);
+  assert.equal(bad.no, -1, '範囲外は自動の結果（当たらなければ -1）に戻る');
+  assert.equal(bad.zip, -1);
+  assert.equal(L.fixMapping({ no: 0 }, head).no, 0);
+});
+
+test('headSignature: 見出しの並びだけを印にする（データを含まない）', () => {
+  assert.equal(L.headSignature(['a', ' b ', 'c']), 'a|b|c');
+  assert.equal(L.headSignature(['a', 'b']), L.headSignature(['a', 'b']));
+  assert.notEqual(L.headSignature(['a', 'b']), L.headSignature(['b', 'a']));
+});
+
+test('どれにも合わない注文の出力先（配送方法の列が無いCSV向け）', () => {
+  const csv = '注文番号,氏名,郵便番号,住所,電話番号\nZ-1,田中,1500001,東京都渋谷区神宮前1-1,0312345678';
+  const orders = L.parseShipOrders(csv).orders;
+  const rules = L.parseRoutes(L.DEFAULT_ROUTES).rules;
+  assert.equal(L.buildLabelSet(orders, rules, CTX).unrouted.length, 1);
+  const r = L.buildLabelSet(orders, rules, CTX, 'yamato');
+  assert.equal(r.unrouted.length, 0);
+  assert.equal(r.sets[0].carrier, 'yamato');
+  assert.equal(L.buildLabelSet(orders, rules, CTX, 'ほげ').unrouted.length, 1, '不正な出力先は無視');
+});
+
+test('画面: 文言が特定のECサービス前提になっていない（label-ui区間）', () => {
+  const ui = html.slice(html.indexOf('/* <label-ui> */'), html.indexOf('/* </label-ui> */'));
+  assert.ok(!/Shopify|Note Attributes/.test(ui));
+  assert.match(ui, /列の割り当て/);
 });
 
 test('個人情報: 宛先の取り込みと出力は画面のメモリ上だけ（GAS・保存領域へ書かない）', () => {
