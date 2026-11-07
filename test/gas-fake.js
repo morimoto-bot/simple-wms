@@ -109,7 +109,7 @@ function createEnv(options = {}) {
         releaseLock: () => { state.unlocks++; }
       })
     },
-    PropertiesService: { getScriptProperties: () => ({ getProperty: (k) => (k in props ? props[k] : null) }) },
+    PropertiesService: { getScriptProperties: () => ({ getProperty: (k) => (k in props ? props[k] : null), setProperty: (k, v) => { props[k] = String(v); }, deleteProperty: (k) => { delete props[k]; } }) },
     ContentService: {
       MimeType: { JSON: 'application/json' },
       createTextOutput: (s) => ({ _s: s, setMimeType() { return this; }, getContent() { return this._s; } })
@@ -142,7 +142,7 @@ function createEnv(options = {}) {
   };
   const token = 'dev-token-0123456789abcdef';
   return {
-    ss, state, ctx,
+    ss, state, ctx, props,
     config: vm.runInContext('CONFIG', ctx),
     post: (action, body = {}) => call('POST', Object.assign({ action, token }, body)),
     get: (action, body = {}) => call('GET', Object.assign({ action, token }, body)),

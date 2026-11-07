@@ -700,7 +700,7 @@ const Logic = (function () {
 /* =====================================================================
  * 画面
  * ===================================================================== */
-const VERSION = '0.6.1';
+const VERSION = '0.7.0';
 const $ = (s, r) => (r || document).querySelector(s);
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const pad = (n) => String(n).padStart(2, '0');
@@ -725,7 +725,7 @@ const S = {
   slips: null, shipSel: null, shipQ: '', slSel: {}, grpName: '', pick: null,
   inspTab: store.get('wms.inspTab', 'slip'), slipPanel: false, slipForm: { csv: '', no: '', lines: '', trk: '' }, slipRes: null, slipTrkRes: null,
   unres: null, codeScan: null, planFilter: 'open',
-  admin: { tab: 'plans', planSt: 'open', slipSt: 'all', slipQ: '', open: {}, detail: {}, histQ: '', histKubun: '', hist: null },
+  admin: { tab: 'plans', planSt: 'open', slipSt: 'all', slipQ: '', open: {}, detail: {}, addr: {}, histQ: '', histKubun: '', hist: null },
   sending: false,
   insp: store.get('wms.insp', null), inspSetup: { name: '', plan: '', defQty: 1, errors: [] },
   stk: store.get('wms.stk', null), stkSetup: { name: '', scope: [], uncounted: 'keep' }, stkShowUncounted: false,
@@ -1858,6 +1858,11 @@ function renderAdmin() {
   if (a.tab === 'hist') return h + renderAdminHist();
   return h + renderStock();
 }
+function adminAddr(a) {
+  if (a === undefined) return '';
+  if (!a) return '<div class="sub" style="margin-bottom:6px">宛先: 保存されていません（または、保持期間が過ぎて消えました）</div>';
+  return '<div class="sub" style="margin-bottom:6px"><b>宛先（CS用）</b>　' + esc(a.name) + '　〒' + esc(a.zip) + '　' + esc(a.address) + '　' + esc(a.phone) + '</div>';
+}
 function adminDetail(kind, id, lines) {
   if (!lines) return '<div class="sub">読み込み中…</div>';
   return kind === 'plan'
@@ -1891,9 +1896,9 @@ function renderAdminSlips() {
   list.forEach((s) => {
     const open = a.open['s:' + s.id];
     h += '<div class="item"><div class="row" data-act="adminToggle" data-k="s:' + esc(s.id) + '" data-kind="slip" data-name="' + esc(s.no) + '" style="cursor:pointer"><div class="grow"><b>' + esc(s.no) + '</b> <span class="tag ' + (STATUS_TAG[s.status] || '') + '">' + esc(s.status) + '</span>' +
-      '<div class="sub">' + esc(s.id) + '　' + esc(s.source || '') + (s.tracking ? '　📦 ' + esc(s.tracking) : '') + '　取込 ' + esc(String(s.importedAt).slice(0, 16)) + (s.shippedAt ? '　出荷 ' + esc(String(s.shippedAt).slice(0, 16)) : '') + '</div></div>' +
+      '<div class="sub">' + esc(s.id) + '　' + esc(s.source || '') + (s.tracking ? '　📦 ' + esc(s.tracking) : '') + (s.hasAddr ? '　🏷宛先あり' : '') + '　取込 ' + esc(String(s.importedAt).slice(0, 16)) + (s.shippedAt ? '　出荷 ' + esc(String(s.shippedAt).slice(0, 16)) : '') + '</div></div>' +
       '<div class="nums" style="text-align:right">' + s.lines + '品 ' + s.qty + '点<br>検品 ' + s.inspected + '</div></div>' +
-      (open ? '<div style="margin-top:6px">' + adminDetail('slip', s.id, a.detail['s:' + s.id]) + '</div>' : '') + '</div>';
+      (open ? '<div style="margin-top:6px">' + adminAddr(a.addr['s:' + s.id]) + adminDetail('slip', s.id, a.detail['s:' + s.id]) + '</div>' : '') + '</div>';
   });
   return h;
 }
@@ -1913,7 +1918,7 @@ async function adminToggle(d) {
   if (a.open[d.k]) { delete a.open[d.k]; renderPanel(); return; }
   a.open[d.k] = true; renderPanel();
   if (!a.detail[d.k]) {
-    try { const r = await api(d.kind === 'plan' ? 'planGet' : 'slipGet', d.kind === 'plan' ? { name: d.name } : { no: d.name }, 'GET'); a.detail[d.k] = r.lines; }
+    try { const r = await api(d.kind === 'plan' ? 'planGet' : 'slipGet', d.kind === 'plan' ? { name: d.name } : { no: d.name }, 'GET'); a.detail[d.k] = r.lines; if (d.kind === 'slip') a.addr[d.k] = r.addr || null; }
     catch (e) { toast(errText(e), 'bad'); delete a.open[d.k]; }
     renderPanel();
   }
@@ -1938,23 +1943,23 @@ async function downloadCsv(kind) {
 }
 function adminEnter() {
   if (!S.cfg.gas) return;
-  S.admin.detail = {}; S.admin.open = {};
-  refreshPlans(); refreshSlipsQuiet().then(renderPanel); loadMaster();
+  S.admin.detail = {}; S.admin.addr = {}; S.admin.open = {};
+  refreshPlans(); refreshSlipsQuiet().then(renderPanel); loadMaster(); if (S.admin.tab === 'label') loadPii();
 }
 
 /* <label-ui> */
 /* ---------- 送り状発行用CSV（宛先は画面のメモリ上だけ。通信・保存はしない。保存するのは発送元・振り分け・列の割り当てだけ） ---------- */
-const LBL_CFG_KEYS = ['shipName', 'shipZip', 'shipAddr', 'shipPhone', 'routes', 'fallback', 'onlyOpen', 'maps', 'ttl'];
+const LBL_CFG_KEYS = ['shipName', 'shipZip', 'shipAddr', 'shipPhone', 'routes', 'fallback', 'onlyOpen', 'maps'];
 const LBL = {
-  cfg: Object.assign({ shipName: '', shipZip: '', shipAddr: '', shipPhone: '', routes: Logic.DEFAULT_ROUTES, fallback: '', onlyOpen: true, maps: {}, ttl: 30 }, store.get('wms.label', {})),
-  paste: '', loadedAt: 0, recs: null, map: null, sig: '', orders: null, built: null, parseErr: []
+  cfg: Object.assign({ shipName: '', shipZip: '', shipAddr: '', shipPhone: '', routes: Logic.DEFAULT_ROUTES, fallback: '', onlyOpen: true, maps: {} }, store.get('wms.label', {})),
+  paste: '', recs: null, map: null, sig: '', orders: null, built: null, parseErr: []
 };
 function lblSave() { const o = {}; LBL_CFG_KEYS.forEach((k) => { o[k] = LBL.cfg[k]; }); store.set('wms.label', o); }
 /** CSVの文字列を読み込む（行は画面のメモリにだけ置く）。列の割り当ては、同じ見出しの並びで前に決めたものがあればそれを使う */
 function lblLoad(text) {
   const recs = Logic.parseCsvRecords(text);
   if (recs.length < 2) { LBL.recs = null; LBL.map = null; LBL.parseErr = ['データの行がありません（1行目は見出し行にしてください）']; return false; }
-  LBL.recs = recs; LBL.loadedAt = Date.now(); LBL.sig = Logic.headSignature(recs[0]);
+  LBL.recs = recs; LBL.sig = Logic.headSignature(recs[0]);
   LBL.map = Logic.fixMapping((LBL.cfg.maps || {})[LBL.sig], recs[0]);
   LBL.known = !!(LBL.cfg.maps || {})[LBL.sig];
   LBL.orders = null; LBL.built = null; LBL.parseErr = [];
@@ -1986,21 +1991,73 @@ function labelRun() {
   LBL.built.skipped = LBL.orders.length - orders.length; LBL.built.routeErr = pr.errors;
   renderPanel();
 }
-function labelClear(auto) {
-  LBL.paste = ''; LBL.recs = null; LBL.map = null; LBL.orders = null; LBL.built = null; LBL.parseErr = []; LBL.loadedAt = 0;
+function labelClear() { LBL.paste = ''; LBL.recs = null; LBL.map = null; LBL.orders = null; LBL.built = null; LBL.parseErr = []; LBL.saveRes = null; renderPanel(); toast('読み込んだ宛先のデータを画面から消しました', 'ok'); }
+/* 宛先を伝票に保存（任意・CS対応用）／保持期間の設定・削除。通信するのは、ここの4つだけ（slipAddress / piiStatus / piiSettings / piiPurge） */
+function piiDaysText(d) { return d > 0 ? d + '日後に自動で消えます' : '自動では消えません（保持期間が「自動では消さない」です）'; }
+async function loadPii() {
+  if (!S.cfg.gas) return;
+  try { LBL.pii = await api('piiStatus', {}, 'GET'); } catch (e) { LBL.pii = null; }
   if (S.mode === 'admin' && S.admin.tab === 'label') renderPanel();
-  toast(auto ? '決めた時間が過ぎたので、宛先のデータを自動で消しました' : '読み込んだ宛先のデータを消しました', auto ? 'warn' : 'ok');
 }
-/** 読み込んだ宛先は、設定の時間（分）が過ぎると自動で消す。0なら自動では消さない */
-function lblLeftMs() { const m = Number(LBL.cfg.ttl); return LBL.recs && m > 0 ? LBL.loadedAt + m * 60000 - Date.now() : null; }
-function lblLeftText() { const l = lblLeftMs(); return l === null ? '' : 'あと' + (l >= 60000 ? Math.ceil(l / 60000) + '分' : Math.max(1, Math.ceil(l / 1000)) + '秒') + 'で自動で消えます'; }
-function lblTick() {
-  const l = lblLeftMs();
-  if (l !== null && l <= 0) { labelClear(true); return; }
-  const el = document.getElementById('lblLeft'); if (el) el.textContent = lblLeftText();
+async function piiSet(days) {
+  try { LBL.pii = await api('piiSettings', { days: days }); toast('保持期間を「' + (days > 0 ? days + '日' : '自動では消さない') + '」にしました', 'ok'); }
+  catch (e) { toast(errText(e), 'bad'); await loadPii(); }
+  renderPanel();
 }
-setInterval(lblTick, 5000);
-document.addEventListener('visibilitychange', () => { if (!document.hidden) lblTick(); });
+async function piiPurgeRun(dry) {
+  if (!dry) {
+    const d = LBL.pii || {};
+    const ok = await confirmDialog({ title: '宛先を今すぐ削除', ok: '削除する', danger: true,
+      body: '出荷済み・キャンセルから' + esc(String(d.days || '')) + '日を過ぎた伝票の、宛先（氏名・郵便番号・住所・電話）を消します（' + esc(String(d.due == null ? '?' : d.due)) + '件）。<b>元に戻せません</b>。伝票番号・送り状番号・商品は残ります。' });
+    if (!ok) return;
+  }
+  S.sending = true; renderPanel();
+  try {
+    const r = await api('piiPurge', { dryRun: !!dry });
+    LBL.piiRes = r;
+    toast(dry ? '削除の対象は ' + r.due + '件です（まだ消していません）' : r.cleared + '件の宛先を消しました', 'ok');
+    await loadPii();
+  } catch (e) { toast(errText(e), 'bad'); }
+  finally { S.sending = false; renderPanel(); }
+}
+async function labelSaveAddr() {
+  if (!S.cfg.gas) { toast('設定（⚙）でGASのURLと合言葉を入れてください', 'bad'); return; }
+  if (!LBL.orders || !LBL.orders.length) { toast('先に、注文CSVを読み込んで「振り分けてCSVを作る」を押してください', 'warn'); return; }
+  const days = LBL.pii ? LBL.pii.days : 30;
+  const ok = await confirmDialog({ title: '宛先を伝票に保存', ok: '保存する',
+    body: esc(String(LBL.orders.length)) + '件の宛先（氏名・郵便番号・住所・電話）を、同じ伝票番号の出荷伝票に<b>保存</b>します。出荷済み・キャンセルから' + esc(piiDaysText(days)) + '。伝票が無い注文は保存しません。' });
+  if (!ok) return;
+  const items = LBL.orders.map((o) => ({ no: o.no, name: o.toName, zip: o.zip, address: [o.province, o.city, o.addr1, o.addr2].filter(Boolean).join(''), phone: o.phone }));
+  S.sending = true; renderPanel();
+  try {
+    let saved = 0, skipped = [];
+    for (let i = 0; i < items.length; i += 200) { const r = await api('slipAddress', { items: items.slice(i, i + 200) }); saved += r.saved; skipped = skipped.concat(r.skipped); }
+    LBL.saveRes = { saved: saved, skipped: skipped };
+    toast(saved + '件の宛先を伝票に保存しました', 'ok');
+    await loadPii();
+  } catch (e) { toast(errText(e), 'bad'); }
+  finally { S.sending = false; renderPanel(); }
+}
+function renderPiiCard() {
+  if (!S.cfg.gas) return '';
+  const d = LBL.pii;
+  let h = '<div class="card"><b>保存した宛先（CS対応用）</b><div class="sub">宛先は、出荷伝票に任意で保存できます。出荷済み・キャンセルから、決めた日数が過ぎると、宛先だけが自動で消えます（伝票番号・送り状番号・商品は残ります）。</div>';
+  if (!d) return h + '<div class="sub" style="margin-top:6px">読み込み中…</div></div>';
+  h += '<label class="f">保持期間</label><select data-in="piiDays">' + d.options.filter((x) => x > 0).concat([0]).map((x) => '<option value="' + x + '"' + (d.days === x ? ' selected' : '') + '>' + (x > 0 ? x + '日' : '自動では消さない') + '</option>').join('') + '</select>' +
+    '<div class="sub" style="margin-top:6px">宛先が入っている伝票: <b>' + d.stored + '件</b>／いま消える対象: <b>' + d.due + '件</b>' + (d.last ? '／最後の削除: ' + esc(d.last.at) + '（' + d.last.count + '件・' + (d.last.mode === 'auto' ? '自動' : d.last.mode === 'trigger' ? 'トリガー' : '手動') + '）' : '') + '</div>' +
+    '<div class="row wrap" style="margin-top:6px"><button class="btn sm" data-act="piiPreview" ' + (S.sending ? 'disabled' : '') + '>削除の対象を確認</button><button class="btn sm danger" data-act="piiRun" ' + (S.sending ? 'disabled' : '') + '>今すぐ削除</button></div>';
+  if (LBL.piiRes && LBL.piiRes.dryRun) h += '<div class="sub" style="margin-top:6px">確認: 削除の対象は ' + LBL.piiRes.due + '件' + (LBL.piiRes.nos.length ? '（' + LBL.piiRes.nos.map(esc).join('、') + (LBL.piiRes.due > LBL.piiRes.nos.length ? ' ほか' : '') + '）' : '') + '</div>';
+  h += '<div class="sub" style="margin-top:6px">削除は、アプリを使った日の最初の通信で、1日1回、自動で行います。アプリを使わない日も消したい時は、GASの時間トリガーに piiDailyPurge を登録します。</div></div>';
+  return h;
+}
+function renderSaveAddrCard() {
+  if (!S.cfg.gas || !LBL.recs) return '';
+  const d = LBL.pii, r = LBL.saveRes;
+  let h = '<div class="card"><b>宛先を伝票に保存（任意）</b><div class="sub">CS対応のために残したい時だけ使います。同じ伝票番号の出荷伝票へ、氏名・郵便番号・住所・電話を保存します（' + esc(piiDaysText(d ? d.days : 30)) + '）。' + (LBL.orders ? '' : '先に「振り分けてCSVを作る」を押してください。') + '</div>' +
+    '<button class="btn sm pri" style="margin-top:6px" data-act="labelSaveAddr" ' + (S.sending || !LBL.orders ? 'disabled' : '') + '>宛先を伝票に保存</button>';
+  if (r) h += '<div class="sub" style="margin-top:6px">保存 ' + r.saved + '件／保存しなかった ' + r.skipped.length + '件' + (r.skipped.length ? '<br>' + r.skipped.slice(0, 8).map((x) => esc(x.no) + '：' + esc(x.reason)).join('<br>') + (r.skipped.length > 8 ? '<br>…ほか' + (r.skipped.length - 8) + '件' : '') : '') + '</div>';
+  return h + '</div>';
+}
 function labelDownload(i, j) {
   const f = LBL.built && LBL.built.sets[i] && LBL.built.sets[i].files[j]; if (!f) return;
   const blob = new Blob(['﻿' + Logic.toCsv(f.header, f.rows)], { type: 'text/csv;charset=utf-8' });
@@ -2021,12 +2078,13 @@ function renderLabelMap() {
 function renderAdminLabel() {
   const c = LBL.cfg, b = LBL.built;
   let h = hint('ECサイトや受注管理から出した<b>注文CSV</b>（どのサービスのものでも可。1行目は見出し行）を読み込むと、<b>配送方法</b>で出力先を振り分け、ヤマト（B2）・佐川（e飛伝III）・日本郵便（ゆうプリR）・クリックポストの<b>取り込み用CSV</b>を作ります。CSVの列は、自動で当てはめ、「列の割り当て」で直せます。<br>' +
-    '<b>宛先は、この画面の中だけで扱います</b>。GAS・スプレッドシート・この端末の保存領域には書きません。<b>決めた時間（既定は30分）で自動で消え</b>、画面を閉じる、または「今すぐ消す」でも消えます。送り状の発行は各社のソフトで行い、できた番号は、検品の「送り状番号を取り込む」で戻します。');
+    '<b>宛先は、この画面の中だけで扱います</b>。この端末の保存領域には書かず、画面を閉じる・「画面から消す」で消えます。CS対応のために残したい時だけ、「宛先を伝票に保存」を押します（出荷済み・キャンセルから決めた日数で、自動で消えます）。送り状の発行は各社のソフトで行い、できた番号は、検品の「送り状番号を取り込む」で戻します。');
   h += '<div class="card"><div class="row wrap"><button class="btn sm" data-act="labelFile">ファイルを選ぶ</button><button class="btn pri grow" data-act="labelRun">振り分けてCSVを作る</button></div>' +
     '<textarea data-in="lbPaste" style="min-height:70px;margin-top:6px" placeholder="または、注文CSVの中身をここに貼り付け">' + esc(LBL.paste) + '</textarea>' +
-    (LBL.recs ? '<div class="sub" style="margin-top:6px">読み込み済み: ' + (LBL.recs.length - 1) + '行（宛先を含む）　<button class="btn sm" data-act="labelClear">今すぐ消す</button><div id="lblLeft" style="margin-top:4px;font-weight:700">' + esc(lblLeftText() || '自動では消えません（設定で時間を決められます）') + '</div></div>' : '') + '</div>';
+    (LBL.recs ? '<div class="sub" style="margin-top:6px">読み込み済み: ' + (LBL.recs.length - 1) + '行（宛先を含む）　<button class="btn sm" data-act="labelClear">画面から消す</button></div>' : '') + '</div>';
   LBL.parseErr.forEach((m) => { h += '<div class="banner warn">' + esc(m) + '</div>'; });
   if (LBL.recs) h += renderLabelMap();
+  h += renderSaveAddrCard() + renderPiiCard();
   h += '<details class="card"' + (c.shipName ? '' : ' open') + '><summary><b>設定</b>（発送元・振り分け）</summary>' +
     '<label class="f">発送元の名前（ご依頼主）</label><input type="text" data-in="lbShipName" value="' + esc(c.shipName) + '" autocomplete="off">' +
     '<label class="f">発送元の郵便番号</label><input type="text" data-in="lbShipZip" value="' + esc(c.shipZip) + '" inputmode="numeric" autocomplete="off" placeholder="1500001">' +
@@ -2037,8 +2095,6 @@ function renderAdminLabel() {
     '<div class="sub">キーワードは、CSVの「配送方法」の列に含まれる文字。出力先は、ヤマト・佐川・日本郵便・クリックポストのどれか。</div>' +
     '<label class="f">どれにも合わない注文（配送方法の列が無い時も）の出力先</label><select data-in="lbFallback"><option value="">出力しない</option>' +
     ['clickpost', 'yamato', 'sagawa', 'yupack'].map((k) => '<option value="' + k + '"' + (c.fallback === k ? ' selected' : '') + '>' + esc(Logic.CARRIER_LABEL[k]) + '</option>').join('') + '</select>' +
-    '<label class="f">宛先を自動で消すまでの時間（分。0なら自動では消さない）</label><input type="number" data-in="lbTtl" min="0" max="1440" step="1" inputmode="numeric" value="' + esc(String(c.ttl)) + '">' +
-    '<div class="sub">読み込んでから、この時間が過ぎると、画面のメモリにある宛先と、作ったCSVの中身を消します（もう一度、ファイルを読み込めば使えます）。</div>' +
     '<label style="display:flex;align-items:center;gap:6px;margin-top:8px"><input type="checkbox" class="chk" data-in="lbOnlyOpen"' + (c.onlyOpen ? ' checked' : '') + '> WMSで出荷済み・キャンセルの伝票は除く（二重発行の防止）</label>' +
     '<div class="sub">この設定は、この端末のブラウザにだけ保存します（宛先は含みません）。</div></details>';
   if (!b) return h;
@@ -2284,13 +2340,16 @@ const Actions = {
   rcvClose() { rcvClose(); },
   rcvSave() { rcvSave(); },
   planCancel(d) { planCancel(d.name); },
-  adminTab(d) { S.admin.tab = d.t; renderPanel(); if (d.t === 'stock') loadMaster(); },
+  adminTab(d) { S.admin.tab = d.t; renderPanel(); if (d.t === 'stock') loadMaster(); if (d.t === 'label') loadPii(); },
   adminReload() { S.plans = null; S.slips = null; S.admin.detail = {}; adminEnter(); },
   adminToggle(d) { adminToggle(d); },
   csv(d) { downloadCsv(d.kind); },
   labelFile() { $('#lbFile').click(); },
   labelRun() { labelRun(); },
   labelClear() { labelClear(); },
+  labelSaveAddr() { labelSaveAddr(); },
+  piiPreview() { piiPurgeRun(true); },
+  piiRun() { piiPurgeRun(false); },
   labelDl(d) { labelDownload(Number(d.i), Number(d.j)); },
   histSearch() { histSearch(); },
   inspDraft() { inspDraft(); },
@@ -2399,7 +2458,7 @@ const Inputs = {
   lbFallback(el) { LBL.cfg.fallback = el.value; lblSave(); },
   lbMap(el) { if (LBL.map) { LBL.map[el.dataset.f] = Number(el.value); lblSaveMap(); } },
   lbOnlyOpen(el) { LBL.cfg.onlyOpen = el.checked; lblSave(); },
-  lbTtl(el) { const n = Math.floor(Number(el.value)); LBL.cfg.ttl = n >= 0 && n <= 1440 ? n : 30; lblSave(); lblTick(); },
+  piiDays(el) { piiSet(Number(el.value)); },
   slSel(el) { S.slSel[el.dataset.no] = el.checked; renderPanel(); },
   grpName(el) { S.grpName = el.value; },
   spotLoc(el) { if (S.spot) { S.spot.location = el.value; renderPanel(); } },

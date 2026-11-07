@@ -39,7 +39,7 @@ var CONFIG = {
   MAX_IMPORT_ROWS: 5000,
   LOCK_WAIT_MS: 20000,
   TIMEZONE: 'Asia/Tokyo',
-  VERSION: '0.5.1',
+  VERSION: '0.7.0',
   APP_NAME: 'simple-wms'
 };
 
@@ -51,7 +51,7 @@ var SHEET_DEF = {
   STOCKTAKE:  { headers: ['日時', '棚卸名', 'JAN', '商品名', '帳簿在庫', '実績数', '差異'],           textCols: [1, 2, 3, 4] },
   PLAN:       { headers: ['予定ID', '予定名', '仕入先名', '状態', '作成日時', '完了日時', 'メモ'],     textCols: [1, 2, 3, 4, 5, 6, 7] },
   PLAN_LINES: { headers: ['予定ID', 'JAN', '商品名', '予定数', '検品済数', '入荷済数', '状態', '備考'], textCols: [1, 2, 3, 7, 8] },
-  SLIP:       { headers: ['伝票ID', '伝票番号', '出所', '状態', '作成日時', '検品日時', '出荷日時', 'メモ', '送り状番号', '配送業者', '作業グループ', '作業開始日時'], textCols: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] },
+  SLIP:       { headers: ['伝票ID', '伝票番号', '出所', '状態', '作成日時', '検品日時', '出荷日時', 'メモ', '送り状番号', '配送業者', '作業グループ', '作業開始日時', '宛先氏名', '宛先郵便番号', '宛先住所', '宛先電話', '完了日時', '個人情報削除日時'], textCols: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18] },
   SLIP_LINES: { headers: ['伝票ID', 'JAN', '商品名', '数量', '検品済数', '元コード'],                 textCols: [1, 2, 3, 6] },
   SKU:        { headers: ['SKU', 'JAN', 'EC側の名称'],                                              textCols: [1, 2, 3] }
 };
@@ -86,7 +86,7 @@ function setupSheets() {
 var READ_ACTIONS = {
   masterGet: masterGet_, masterList: masterList_, stocktakePreview: stocktakePreview_,
   planList: planList_, planGet: planGet_, slipList: slipList_, slipGet: slipGet_, slipPicking: slipPicking_,
-  skuList: skuList_, historyList: historyList_, exportData: exportData_
+  skuList: skuList_, historyList: historyList_, exportData: exportData_, piiStatus: piiStatus_
 };
 var WRITE_ACTIONS = {
   masterUpsert: masterUpsert_,
@@ -112,10 +112,13 @@ var WRITE_ACTIONS = {
   slipTracking: slipTracking_,
   slipTrackingImport: slipTrackingImport_,
   inspectionSave: inspectionSave_,
-  stocktakeSave: stocktakeSave_
+  stocktakeSave: stocktakeSave_,
+  slipAddress: slipAddress_,
+  piiSettings: piiSettings_,
+  piiPurge: piiPurge_
 };
 // GETで受け付ける読み取りだけ（プレビューはPOSTのみ）
-var GET_OK = { masterGet: true, masterList: true, planList: true, planGet: true, slipList: true, slipGet: true, skuList: true, historyList: true, exportData: true };
+var GET_OK = { masterGet: true, masterList: true, planList: true, planGet: true, slipList: true, slipGet: true, skuList: true, historyList: true, exportData: true, piiStatus: true };
 
 function handle_(method, req) {
   try {
@@ -125,6 +128,7 @@ function handle_(method, req) {
     }
     checkToken_(req.token);
     setupSheets(); // 4枚のシートが無ければ作る（あれば何もしない）
+    autoPurge_();  // 保持期間を過ぎた宛先を、1日1回だけ消す（失敗しても、依頼された処理は続ける）
 
     if (READ_ACTIONS[action]) {
       if (method === 'GET' && !GET_OK[action]) throw new AppError('bad_request', action + ' はPOSTで呼んでください');
@@ -1319,10 +1323,10 @@ function slipKey_(no) { return nfkc_(no).replace(/\s+/g, ' ').replace(/^\s+|\s+$
 function slipNo_(no) { return nfkc_(no).replace(/\s+/g, ' ').replace(/^\s+|\s+$/g, ''); }
 
 function loadSlips_() {
-  var H = loadTable_('SLIP', 12, function (v) {
+  var H = loadTable_('SLIP', 18, function (v) {
     var id = str_(v[0]);
     if (!id) return null;
-    return { id: id, no: str_(v[1]), source: str_(v[2]), status: str_(v[3]), created: str_(v[4]), inspected: str_(v[5]), shipped: str_(v[6]), memo: str_(v[7]), tracking: str_(v[8]), carrier: str_(v[9]), group: str_(v[10]), groupAt: str_(v[11]) };
+    return { id: id, no: str_(v[1]), source: str_(v[2]), status: str_(v[3]), created: str_(v[4]), inspected: str_(v[5]), shipped: str_(v[6]), memo: str_(v[7]), tracking: str_(v[8]), carrier: str_(v[9]), group: str_(v[10]), groupAt: str_(v[11]), toName: str_(v[12]), toZip: str_(v[13]), toAddr: str_(v[14]), toTel: str_(v[15]), doneAt: str_(v[16]), piiClearedAt: str_(v[17]) };
   });
   var L = loadTable_('SLIP_LINES', 6, function (v) {
     var id = str_(v[0]);
@@ -1336,8 +1340,8 @@ function loadSlips_() {
 }
 function commitSlips_(s) {
   commitTable_(s.H,
-    function (r) { return [r.id, r.no, r.source, r.status, r.created, r.inspected, r.shipped, r.memo, r.tracking, r.carrier, r.group || '', r.groupAt || '']; },
-    4, function (r) { return [r.status, r.created, r.inspected, r.shipped, r.memo, r.tracking, r.carrier, r.group || '', r.groupAt || '']; });
+    function (r) { return [r.id, r.no, r.source, r.status, r.created, r.inspected, r.shipped, r.memo, r.tracking, r.carrier, r.group || '', r.groupAt || '', r.toName || '', r.toZip || '', r.toAddr || '', r.toTel || '', r.doneAt || '', r.piiClearedAt || '']; },
+    4, function (r) { return [r.status, r.created, r.inspected, r.shipped, r.memo, r.tracking, r.carrier, r.group || '', r.groupAt || '', r.toName || '', r.toZip || '', r.toAddr || '', r.toTel || '', r.doneAt || '', r.piiClearedAt || '']; });
   commitTable_(s.L,
     function (r) { return [r.sid, r.jan, r.pname, r.qty, r.done, r.code]; },
     3, function (r) { return [r.pname, r.qty, r.done, r.code]; });
@@ -1355,10 +1359,10 @@ function slipSummary_(s, h) {
   lines.forEach(function (l) { qty += l.qty; done += l.done; });
   return { id: h.id, no: h.no, status: h.status, source: h.source, lines: lines.length, qty: qty, inspected: done,
     importedAt: h.created, inspectedAt: h.inspected, shippedAt: h.shipped, memo: h.memo, tracking: h.tracking, carrier: h.carrier,
-    group: h.group || '', groupAt: h.groupAt || '' };
+    group: h.group || '', groupAt: h.groupAt || '', hasAddr: hasPii_(h) };
 }
 function addSlip_(s, no, lines, source, memo, ts) {
-  var h = addTableRow_(s.H, { id: nextId_(s.H, 'SH-', 'id'), no: no, source: source, status: '未検品', created: ts, inspected: '', shipped: '', memo: memo || '', tracking: '', carrier: '', group: '', groupAt: '' });
+  var h = addTableRow_(s.H, { id: nextId_(s.H, 'SH-', 'id'), no: no, source: source, status: '未検品', created: ts, inspected: '', shipped: '', memo: memo || '', tracking: '', carrier: '', group: '', groupAt: '', toName: '', toZip: '', toAddr: '', toTel: '', doneAt: '', piiClearedAt: '' });
   s.byId[h.id] = h; s.byKey[slipKey_(no)] = h; s.linesOf[h.id] = [];
   lines.forEach(function (l) {
     s.linesOf[h.id].push(addTableRow_(s.L, { sid: h.id, jan: l.row.jan, pname: l.row.name, qty: l.qty, done: 0, code: l.code }));
@@ -1478,6 +1482,8 @@ function slipGet_(req) {
   var m = loadMaster_();
   return {
     ok: true, slip: slipSummary_(s, h),
+    addr: hasPii_(h) ? { name: h.toName, zip: h.toZip, address: h.toAddr, phone: h.toTel } : null,
+    piiClearedAt: h.piiClearedAt || '',
     lines: (s.linesOf[h.id] || []).map(function (l) {
       var mr = m.byKey[janKey_(l.jan)];
       return { jan: l.jan, name: mr ? mr.name : l.pname, location: mr ? mr.location : '', stock: mr ? mr.stock : 0, qty: l.qty, done: l.done, code: l.code };
@@ -1566,7 +1572,7 @@ function slipShip_(req) {
     ioRows.push(ioRow_(ts, mr, '出荷', l.qty, '出荷伝票:' + h.no + (h.tracking ? ' / 送り状:' + h.tracking : '') + userMemo));
     items.push(pub_(mr));
   });
-  h.status = '出荷済'; h.shipped = ts; h.dirty = true;
+  h.status = '出荷済'; h.shipped = ts; h.doneAt = ts; h.dirty = true;
   commitMaster_(m);
   commitSlips_(s);
   appendRows_('IO', ioRows);
@@ -1579,7 +1585,7 @@ function slipVoid_(req) {
   var h = findSlip_(s, req);
   if (h.status === '出荷済') throw new AppError('bad_state', '出荷済みの伝票はキャンセルできません: ' + h.no, { status: h.status });
   if (h.group && h.status !== 'キャンセル') throw new AppError('grouped', '出荷作業中（' + h.group + '）の伝票です。先に「出荷待ちに戻す」で作業グループから外してください: ' + h.no, { group: h.group });
-  if (h.status !== 'キャンセル') { h.status = 'キャンセル'; h.dirty = true; commitSlips_(s); }
+  if (h.status !== 'キャンセル') { h.status = 'キャンセル'; h.doneAt = now_(); h.dirty = true; commitSlips_(s); }
   return { ok: true, slip: slipSummary_(s, h) };
 }
 
@@ -1758,6 +1764,129 @@ function skuDelete_(req) {
   setSkus_(m, r, r.skus.filter(function (x) { return skuKey_(x) !== k; }));
   commitMaster_(m);
   return { ok: true, item: pub_(r) };
+}
+
+/* ============================== 個人情報（宛先）の保存と、保持期間での削除 ============================== */
+/*
+ * CS対応のために、宛先（氏名・郵便番号・住所・電話）を、出荷伝票に「任意で」保存できる。
+ * 保存した宛先は、伝票が「出荷済」または「キャンセル」になってから、決めた日数（7・14・21・30・60・90日。0なら自動では消さない）が過ぎると、
+ * 宛先の4列だけを空白にする（伝票番号・送り状番号・商品明細は残す）。消した日時は「個人情報削除日時」に残る。復旧はできない。
+ * 起点は「完了日時」（出荷またはキャンセルした時）。出荷前の伝票は消さない。
+ * 実行のしかた: ①アプリを使った日の最初の通信で1日1回（autoPurge_）／②画面の「今すぐ削除」／③時間トリガーに piiDailyPurge を登録（任意）
+ */
+var PII_DAYS_OPTIONS = [0, 7, 14, 21, 30, 60, 90];
+var PII_DAYS_DEFAULT = 30;
+var PII_MAX_ITEMS = 500;
+
+function props_() { return PropertiesService.getScriptProperties(); }
+function piiDays_() {
+  var v = props_().getProperty('PII_RETENTION_DAYS');
+  var n = (v === null || v === undefined || v === '') ? PII_DAYS_DEFAULT : Number(v);
+  return PII_DAYS_OPTIONS.indexOf(n) >= 0 ? n : PII_DAYS_DEFAULT;
+}
+function hasPii_(h) { return !!(h.toName || h.toZip || h.toAddr || h.toTel); }
+/** 'yyyy/MM/dd HH:mm:ss'（日本時間）→ ミリ秒。読めなければ null */
+function tsMs_(t) {
+  var m = /^(\d{4})\/(\d{2})\/(\d{2}) (\d{2}):(\d{2}):(\d{2})$/.exec(str_(t));
+  return m ? Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]) - 9, Number(m[5]), Number(m[6])) : null;
+}
+function piiBaseMs_(h) {
+  var t = tsMs_(h.doneAt);
+  if (t === null && h.status === '出荷済') t = tsMs_(h.shipped);
+  if (t === null) t = tsMs_(h.created);
+  return t;
+}
+/** 保持期間を過ぎて、消す対象か */
+function piiDue_(h, days, nowMs) {
+  if (days <= 0 || !hasPii_(h) || (h.status !== '出荷済' && h.status !== 'キャンセル')) return false;
+  var b = piiBaseMs_(h);
+  return b === null || nowMs - b >= days * 86400000;
+}
+function piiLog_() {
+  try { var a = JSON.parse(props_().getProperty('PII_LOG') || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; }
+}
+function piiLogAdd_(entry) {
+  var a = piiLog_(); a.unshift(entry);
+  props_().setProperty('PII_LOG', JSON.stringify(a.slice(0, 10)));
+}
+
+/** 消す。dryRun なら数える（何も変えない）。ログには、日時・件数・日数・実行のしかただけを残す（宛先や伝票番号は残さない） */
+function runPurge_(dryRun, mode) {
+  var days = piiDays_();
+  var s = loadSlips_();
+  var nowMs = Date.now();
+  var due = s.H.rows.filter(function (h) { return piiDue_(h, days, nowMs); });
+  var res = { ok: true, dryRun: !!dryRun, days: days, due: due.length, cleared: 0, nos: due.slice(0, 30).map(function (h) { return h.no; }) };
+  if (dryRun || !due.length) return res;
+  var ts = now_();
+  due.forEach(function (h) { h.toName = ''; h.toZip = ''; h.toAddr = ''; h.toTel = ''; h.piiClearedAt = ts; h.dirty = true; });
+  commitSlips_(s);
+  res.cleared = due.length;
+  piiLogAdd_({ at: ts, mode: mode || 'manual', days: days, count: due.length });
+  return res;
+}
+
+/** 1日1回、保持期間を過ぎた宛先を消す。どんな失敗も、依頼された処理には影響させない */
+function autoPurge_() {
+  try {
+    if (piiDays_() <= 0) return;
+    var today = now_().slice(0, 10);
+    if (props_().getProperty('PII_LAST_PURGE') === today) return;
+    withLock_(function () { runPurge_(false, 'auto'); props_().setProperty('PII_LAST_PURGE', today); });
+  } catch (e) { try { Logger.log('autoPurge_: ' + e); } catch (ignore) {} }
+}
+
+/** 時間トリガー（毎日）に登録して使う（任意）。アプリを使わない日でも消したい時だけ */
+function piiDailyPurge() {
+  withLock_(function () { runPurge_(false, 'trigger'); });
+}
+
+function piiStatus_() {
+  var days = piiDays_();
+  var s = loadSlips_();
+  var nowMs = Date.now();
+  var stored = 0, due = 0;
+  s.H.rows.forEach(function (h) { if (hasPii_(h)) { stored++; if (piiDue_(h, days, nowMs)) due++; } });
+  var log = piiLog_();
+  return { ok: true, days: days, options: PII_DAYS_OPTIONS.slice(), stored: stored, due: due, last: log[0] || null, log: log.slice(0, 5) };
+}
+
+function piiSettings_(req) {
+  var n = Number(req.days);
+  if (PII_DAYS_OPTIONS.indexOf(n) < 0) throw new AppError('bad_request', 'days は ' + PII_DAYS_OPTIONS.join(' / ') + ' のどれかです（0は自動では消さない）');
+  props_().setProperty('PII_RETENTION_DAYS', String(n));
+  return piiStatus_();
+}
+
+function piiPurge_(req) {
+  return runPurge_(req.dryRun === true, 'manual');
+}
+
+/** 宛先を伝票に保存する（任意）。伝票が無い・保持期間を過ぎている・宛先が空のものは保存せず、理由を返す */
+function slipAddress_(req) {
+  var items = Array.isArray(req.items) ? req.items : [];
+  if (!items.length) throw new AppError('bad_request', '保存する宛先がありません');
+  if (items.length > PII_MAX_ITEMS) throw new AppError('bad_request', '一度に保存できるのは' + PII_MAX_ITEMS + '件までです');
+  var days = piiDays_();
+  var s = loadSlips_();
+  var nowMs = Date.now();
+  var saved = 0, skipped = [];
+  items.forEach(function (it) {
+    var no = str_(it && it.no);
+    var h = s.byKey[slipKey_(no)];
+    if (!h) { skipped.push({ no: no, reason: '伝票がありません' }); return; }
+    var name = cleanMemo_(it.name).slice(0, 60);
+    var zip = janDigits_(it.zip).slice(0, 7);
+    var addr = cleanMemo_(it.address).slice(0, 200);
+    var tel = nfkc_(str_(it.phone)).replace(/[^0-9+\-]/g, '').slice(0, 20);
+    if (!name && !zip && !addr && !tel) { skipped.push({ no: h.no, reason: '宛先が空です' }); return; }
+    var prev = { toName: h.toName, toZip: h.toZip, toAddr: h.toAddr, toTel: h.toTel };
+    h.toName = name; h.toZip = zip; h.toAddr = addr; h.toTel = tel;
+    if (piiDue_(h, days, nowMs)) { h.toName = prev.toName; h.toZip = prev.toZip; h.toAddr = prev.toAddr; h.toTel = prev.toTel; skipped.push({ no: h.no, reason: '保持期間（' + days + '日）を過ぎた伝票です' }); return; }
+    h.piiClearedAt = ''; h.dirty = true; saved++;
+  });
+  if (saved) commitSlips_(s);
+  return { ok: true, saved: saved, skipped: skipped, days: days };
 }
 
 /* ---------- 管理ビュー・CSV用 ---------- */

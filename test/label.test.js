@@ -236,30 +236,38 @@ test('画面: 文言が特定のECサービス前提になっていない（labe
   assert.match(ui, /列の割り当て/);
 });
 
-test('個人情報: 宛先の取り込みと出力は画面のメモリ上だけ（GAS・保存領域へ書かない）', () => {
+test('個人情報: 宛先を送るのは「宛先を伝票に保存」だけ。CSVの生成・読み込みは通信しない。端末に保存するのは設定だけ', () => {
   const s = html.indexOf('/* <label-ui> */'), e = html.indexOf('/* </label-ui> */');
   assert.ok(s > 0 && e > s, 'label-ui区間が見つからない');
   const ui = html.slice(s, e);
-  assert.ok(!/\bapi\(/.test(ui), '送り状CSVの処理から通信（api）を呼ばない');
-  assert.ok(!/fetch\(|XMLHttpRequest|sendBeacon/.test(ui), '外へ送らない');
+  assert.ok(!/fetch\(|XMLHttpRequest|sendBeacon/.test(ui), '外へ直接送らない');
+  const calls = [...ui.matchAll(/\bapi\('([A-Za-z]+)'/g)].map((x) => x[1]);
+  assert.deepEqual([...new Set(calls)].sort(), ['piiPurge', 'piiSettings', 'piiStatus', 'slipAddress'], '通信するのは、保存・保持期間・削除の4つだけ');
+  // 宛先を送る slipAddress は、確認ダイアログを経てからだけ
+  const save = ui.match(/async function labelSaveAddr\(\) \{([\s\S]*?)\n\}/);
+  assert.ok(save, 'labelSaveAddr がある');
+  assert.ok(save[1].indexOf('confirmDialog') >= 0 && save[1].indexOf('confirmDialog') < save[1].indexOf("api('slipAddress'"), '保存の前に確認する');
+  assert.equal([...ui.matchAll(/api\('slipAddress'/g)].length, 1, '宛先を送る場所は1か所');
+  // 振り分け・CSV作成・読み込み（labelRun/lblLoad/labelDownload）は通信しない
+  for (const fn of ['labelRun', 'lblLoad', 'labelDownload']) {
+    const m = ui.match(new RegExp('function ' + fn + '\\([^)]*\\) \\{([\\s\\S]*?)\\n\\}'));
+    assert.ok(m, fn + ' がある');
+    assert.ok(!/\bapi\(/.test(m[1]), fn + ' は通信しない');
+  }
   const stores = ui.match(/store\.set\([^)]*\)/g) || [];
   assert.ok(stores.length >= 1 && stores.every((x) => /'wms\.label'/.test(x)), '保存するのは設定（wms.label）だけ');
-  // 設定として保存する項目に、注文・宛先が入らない
   const cfgDef = ui.match(/const LBL_CFG_KEYS = \[([^\]]*)\]/);
   assert.ok(cfgDef, '保存する設定の項目一覧がある');
-  assert.ok(!/orders|text|res/.test(cfgDef[1]), '注文データは設定に含めない');
+  assert.ok(!/orders|text|res|addr|recs/.test(cfgDef[1]), '注文・宛先は設定に含めない');
 });
 
-test('宛先の自動消去: 既定30分・設定で変えられる・時間が過ぎたら宛先とCSVの中身を消す', () => {
+test('保持期間・削除の画面: 保持日数の選択、削除の対象を確認、今すぐ削除（確認つき）がある。分単位の自動消去は無い', () => {
   const ui = html.slice(html.indexOf('/* <label-ui> */'), html.indexOf('/* </label-ui> */'));
-  assert.match(ui, /ttl: 30/, '既定は30分');
-  assert.match(ui, /LBL_CFG_KEYS = \[[^\]]*'ttl'/, '時間は設定として保存する');
-  assert.match(ui, /setInterval\(lblTick, \d+\)/, '定期的に確かめる');
-  assert.match(ui, /visibilitychange/, '画面に戻った時にも確かめる');
-  const clear = ui.match(/function labelClear\(auto\) \{([\s\S]*?)\n\}/);
-  assert.ok(clear, 'labelClear がある');
-  for (const k of ['LBL.recs = null', 'LBL.orders = null', 'LBL.built = null', "LBL.paste = ''"]) assert.ok(clear[1].includes(k), k + ' を消す');
-  assert.match(ui, /if \(l !== null && l <= 0\) \{ labelClear\(true\)/, '時間が来たら自動で消す');
-  assert.match(ui, /data-in="lbTtl"/, '時間を変える入力欄がある');
+  assert.match(ui, /data-in="piiDays"/);
+  assert.match(ui, /data-act="piiPreview"/);
+  assert.match(ui, /data-act="piiRun"/);
+  const run = ui.match(/async function piiPurgeRun\(dry\) \{([\s\S]*?)\n\}/);
+  assert.ok(run && /confirmDialog/.test(run[1]) && /danger: true/.test(run[1]), '今すぐ削除は確認してから');
+  assert.ok(!/setInterval|ttl|lblTick/.test(ui), '分単位のタイマーは持たない');
+  assert.match(ui, /d\.options/, '選べる日数はGASの値（7・14・21・30・60・90・0）を使う');
 });
-
